@@ -17,7 +17,7 @@ struct SPIRV_Cross_Input
 
 struct SPIRV_Cross_Output
 {
-    float2 TexCoord : TEXCOORD0;
+    float2 TexCoord : TEXCOORD1;
     float4 gl_Position : SV_Position;
 };
 

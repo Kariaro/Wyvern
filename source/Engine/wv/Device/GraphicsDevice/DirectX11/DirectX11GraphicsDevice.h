@@ -91,6 +91,8 @@ namespace wv
 		std::unordered_map<wv::Handle, ID3D11PixelShader*> m_pixelShaderMap;
 		uint32_t m_inputLayouts = 0;
 		std::unordered_map<wv::Handle, ID3D11InputLayout*> m_inputLayoutMap;
+		uint32_t m_dataBuffers = 0;
+		std::unordered_map<wv::Handle, ID3D11Buffer*> m_dataBufferMap;
 		
 		
 #endif

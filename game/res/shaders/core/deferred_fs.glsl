@@ -7,7 +7,7 @@ layout(binding = 1) uniform sampler2D u_Normal;
 layout(binding = 2) uniform sampler2D u_Position;
 layout(binding = 3) uniform sampler2D u_RoughnessMetallic;
 
-layout(location = 0) in vec2 TexCoord;
+layout(location = 1) in vec2 TexCoord;
 layout(location = 0) out vec4 FragColor;
 
 const vec3 LIGHT_DIR = normalize( vec3( 1,1,-1 ) );

@@ -11,7 +11,7 @@ layout(binding = 1) uniform UbInstanceData
     mat4x4 u_Model;
 };
 
-out gl_PerVertex
+layout(location = 0) out gl_PerVertex
 {
     vec4 gl_Position;
 };

@@ -56,6 +56,93 @@
 	#define WV_ASSERT_ERR( _msg ) 
 #endif
 
+
+#ifdef WV_SUPPORT_D3D11
+std::string getErrorMessage( HRESULT _hr )
+{
+	LPTSTR error_text = NULL;
+	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM |
+				   FORMAT_MESSAGE_ALLOCATE_BUFFER |
+				   FORMAT_MESSAGE_IGNORE_INSERTS,
+				   NULL,
+				   _hr,
+				   MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),
+				   (LPTSTR)&error_text, 0,
+				   NULL );
+
+	return std::string(error_text);
+	/*
+	bool severity = ( _hr & 0b1 ) != 0;
+	bool customer = ( _hr & 0b100 ) != 0;
+	bool ntstatus = ( _hr & 0b1000 ) != 0;
+	int facility = ( _hr & 0b1111111111100000 ) >> 5;
+
+	std::string result = "";
+	result += severity ? "(S) " : "";
+	result += customer ? "(C) " : "";
+	result += ntstatus ? "(N) " : "";
+	switch ( facility )
+	{
+	case FACILITY_NULL: result += "(FACILITY_NULL) The default facility code."; break;
+	case FACILITY_RPC: result += "(FACILITY_RPC) The source of the error code is an RPC subsystem."; break;
+	case FACILITY_DISPATCH: result += "(FACILITY_DISPATCH) The source of the error code is a COM Dispatch."; break;
+	case FACILITY_STORAGE: result += "(FACILITY_STORAGE) The source of the error code is OLE Storage."; break;
+	case FACILITY_ITF: result += "(FACILITY_ITF) The source of the error code is COM/OLE Interface management."; break;
+	case FACILITY_WIN32: result += "(FACILITY_WIN32) This region is reserved to map undecorated error codes into HRESULTs."; break;
+	case FACILITY_WINDOWS: result += "(FACILITY_WINDOWS) The source of the error code is the Windows subsystem."; break;
+	case FACILITY_SECURITY: result += "(FACILITY_SECURITY) The source of the error code is the Security API layer."; break;
+	// case FACILITY_SSPI: result += "(FACILITY_SSPI) The source of the error code is the Security API layer."; break;
+	case FACILITY_CONTROL: result += "(FACILITY_CONTROL) The source of the error code is the control mechanism."; break;
+	case FACILITY_CERT: result += "(FACILITY_CERT) The source of the error code is a certificate client or server? "; break;
+	case FACILITY_INTERNET: result += "(FACILITY_INTERNET) The source of the error code is Wininet related."; break;
+	case FACILITY_MEDIASERVER: result += "(FACILITY_MEDIASERVER) The source of the error code is the Windows Media Server."; break;
+	case FACILITY_MSMQ: result += "(FACILITY_MSMQ) The source of the error code is the Microsoft Message Queue."; break;
+	case FACILITY_SETUPAPI: result += "(FACILITY_SETUPAPI) The source of the error code is the Setup API."; break;
+	case FACILITY_SCARD: result += "(FACILITY_SCARD) The source of the error code is the Smart-card subsystem."; break;
+	case FACILITY_COMPLUS: result += "(FACILITY_COMPLUS) The source of the error code is COM+."; break;
+	case FACILITY_AAF: result += "(FACILITY_AAF) The source of the error code is the Microsoft agent."; break;
+	case FACILITY_URT: result += "(FACILITY_URT) The source of the error code is .NET CLR."; break;
+	case FACILITY_ACS: result += "(FACILITY_ACS) The source of the error code is the audit collection service."; break;
+	case FACILITY_DPLAY: result += "(FACILITY_DPLAY) The source of the error code is Direct Play."; break;
+	case FACILITY_UMI: result += "(FACILITY_UMI) The source of the error code is the ubiquitous memoryintrospection service."; break;
+	case FACILITY_SXS: result += "(FACILITY_SXS) The source of the error code is Side-by-side servicing."; break;
+	case FACILITY_WINDOWS_CE: result += "(FACILITY_WINDOWS_CE) The error code is specific to Windows CE."; break;
+	case FACILITY_HTTP: result += "(FACILITY_HTTP) The source of the error code is HTTP support."; break;
+	case FACILITY_USERMODE_COMMONLOG: result += "(FACILITY_USERMODE_COMMONLOG) The source of the error code is common Logging support."; break;
+	case FACILITY_USERMODE_FILTER_MANAGER: result += "(FACILITY_USERMODE_FILTER_MANAGER) The source of the error code is the user mode filter manager."; break;
+	case FACILITY_BACKGROUNDCOPY: result += "(FACILITY_BACKGROUNDCOPY) The source of the error code is background copy control"; break;
+	case FACILITY_CONFIGURATION: result += "(FACILITY_CONFIGURATION) The source of the error code is configuration services."; break;
+	case FACILITY_STATE_MANAGEMENT: result += "(FACILITY_STATE_MANAGEMENT) The source of the error code is state management services."; break;
+	case FACILITY_METADIRECTORY: result += "(FACILITY_METADIRECTORY) The source of the error code is the Microsoft Identity Server."; break;
+	case FACILITY_WINDOWSUPDATE: result += "(FACILITY_WINDOWSUPDATE) The source of the error code is a Windows update."; break;
+	case FACILITY_DIRECTORYSERVICE: result += "(FACILITY_DIRECTORYSERVICE) The source of the error code is Active Directory."; break;
+	case FACILITY_GRAPHICS: result += "(FACILITY_GRAPHICS) The source of the error code is the graphics drivers."; break;
+	case FACILITY_SHELL: result += "(FACILITY_SHELL) The source of the error code is the user Shell."; break;
+	case FACILITY_TPM_SERVICES: result += "(FACILITY_TPM_SERVICES) The source of the error code is the Trusted Platform Module services."; break;
+	case FACILITY_TPM_SOFTWARE: result += "(FACILITY_TPM_SOFTWARE) The source of the error code is the Trusted Platform Module applications."; break;
+	case FACILITY_PLA: result += "(FACILITY_PLA) The source of the error code is Performance Logs and Alerts"; break;
+	case FACILITY_FVE: result += "(FACILITY_FVE) The source of the error code is Full volume encryption."; break;
+	case FACILITY_FWP: result += "(FACILITY_FWP) he source of the error code is the Firewall Platform."; break;
+	case FACILITY_WINRM: result += "(FACILITY_WINRM) The source of the error code is the Windows Resource Manager."; break;
+	case FACILITY_NDIS: result += "(FACILITY_NDIS) The source of the error code is the Network Driver Interface."; break;
+	case FACILITY_USERMODE_HYPERVISOR: result += "(FACILITY_USERMODE_HYPERVISOR) The source of the error code is the Usermode Hypervisor components."; break;
+	case FACILITY_CMI: result += "(FACILITY_CMI) The source of the error code is the Configuration Management Infrastructure."; break;
+	case FACILITY_USERMODE_VIRTUALIZATION: result += "(FACILITY_USERMODE_VIRTUALIZATION) The source of the error code is the user mode virtualization subsystem."; break;
+	case FACILITY_USERMODE_VOLMGR: result += "(FACILITY_USERMODE_VOLMGR) The source of the error code is  the user mode volume manager"; break;
+	case FACILITY_BCD: result += "(FACILITY_BCD) The source of the error code is the Boot Configuration Database."; break;
+	case FACILITY_USERMODE_VHD: result += "(FACILITY_USERMODE_VHD) The source of the error code is user mode virtual hard disk support."; break;
+	case FACILITY_SDIAG: result += "(FACILITY_SDIAG) The source of the error code is System Diagnostics."; break;
+	case FACILITY_WEBSERVICES: result += "(FACILITY_WEBSERVICES) The source of the error code is the Web Services."; break;
+	case FACILITY_WINDOWS_DEFENDER: result += "(FACILITY_WINDOWS_DEFENDER) The source of the error code is a Windows Defender component."; break;
+	case FACILITY_OPC: result += "(FACILITY_OPC) The source of the error code is the open connectivity service."; break;
+	default: result += "(UNKNOWN) Unknown facility " + std::to_string(facility); break;
+	}
+
+	return result;
+	*/
+}
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////////////
 
 wv::cDirectX11GraphicsDevice::cDirectX11GraphicsDevice()
@@ -180,7 +267,7 @@ bool wv::cDirectX11GraphicsDevice::initialize( GraphicsDeviceDesc* _desc )
 	hr = D3D11CreateDeviceAndSwapChain( m_d3d11adapters[ 0 ].pAdapter, //IDXGI Adapter
 										D3D_DRIVER_TYPE_UNKNOWN,
 										NULL, //FOR SOFTWARE DRIVER TYPE
-										NULL, //FLAGS FOR RUNTIME LAYERS
+										D3D11_CREATE_DEVICE_DEBUG, //FLAGS FOR RUNTIME LAYERS
 										NULL, //FEATURE LEVELS ARRAY
 										0,    //# OF FEATURE LEVELS IN ARRAY
 										D3D11_SDK_VERSION,
@@ -220,8 +307,8 @@ bool wv::cDirectX11GraphicsDevice::initialize( GraphicsDeviceDesc* _desc )
 		ID3D11InfoQueue* d3dInfoQueue = nullptr;
 		if ( SUCCEEDED( d3dDebug->QueryInterface( __uuidof( ID3D11InfoQueue ), (void**)&d3dInfoQueue ) ) )
 		{
-			d3dInfoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_CORRUPTION, true );
-			d3dInfoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_ERROR, true );
+			// d3dInfoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_CORRUPTION, true );
+			// d3dInfoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_ERROR, true );
 			d3dInfoQueue->Release();
 		}
 		d3dDebug->Release();
@@ -444,6 +531,7 @@ wv::sShaderProgram* wv::cDirectX11GraphicsDevice::createProgram( sShaderProgramD
 		m_vertexShaderBlobMap[ m_vertexShaders ] = shaderBlob;
 		sShaderProgram* program = new sShaderProgram();
 		program->handle = m_vertexShaders;
+		// Debug::Print( Debug::WV_PRINT_INFO, "Success compiling vertex shader\n" );
 		return program;
 	}
 	else if ( type == eShaderProgramType::WV_SHADER_TYPE_FRAGMENT )
@@ -481,13 +569,15 @@ wv::sShaderProgram* wv::cDirectX11GraphicsDevice::createProgram( sShaderProgramD
 			&piShader );
 		if ( FAILED( hr ) )
 		{
-			Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create pixel (fragment) shader. (%d)\n", hr );
+			Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create fragment shader. (%d)\n", hr );
 			return nullptr;
 		}
 
 		m_pixelShaderMap[ ++m_pixelShaders ] = piShader;
 		sShaderProgram* program = new sShaderProgram();
 		program->handle = m_pixelShaders;
+		// Debug::Print( Debug::WV_PRINT_INFO, "Success compiling fragment shader\n" );
+		shaderBlob->Release();
 		return program;
 	}
 
@@ -550,23 +640,23 @@ wv::sPipeline* wv::cDirectX11GraphicsDevice::createPipeline( sPipelineDesc* _des
 	};
 	*/
 
-	D3D11_INPUT_ELEMENT_DESC inputElementDesc[] = {
-		{ "POS", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TAN", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COL", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEX", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-	};
-	HRESULT hr;
-
 	wv::Handle vertexHandle = ( *_desc->pVertexProgram )->handle;
 	auto iter = m_vertexShaderBlobMap.find(vertexHandle);
 	if ( iter == m_vertexShaderBlobMap.end() )
 	{
 		Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create input layout could not find vertex shader blob\n" );
 		return nullptr;
-
 	}
+
+	D3D11_INPUT_ELEMENT_DESC inputElementDesc[] = {
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 2, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	};
+	HRESULT hr;
+
 
 	hr = m_device->CreateInputLayout(
 		inputElementDesc,
@@ -576,7 +666,7 @@ wv::sPipeline* wv::cDirectX11GraphicsDevice::createPipeline( sPipelineDesc* _des
 		&inputLayout );
 	if ( FAILED( hr ) )
 	{
-		Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create input layout. (%d)\n", hr );
+		Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create input layout. (%d) %s\n", hr, getErrorMessage( hr ).c_str() );
 		return nullptr;
 	}
 
@@ -622,26 +712,53 @@ wv::cGPUBuffer* wv::cDirectX11GraphicsDevice::createGPUBuffer( sGPUBufferDesc* _
 {
 	WV_TRACE();
 
-	Debug::Print( Debug::WV_PRINT_INFO, "createGPUBuffer\n" );
-#ifdef WV_SUPPORT_OPENGL_TEMP
+#ifdef WV_SUPPORT_D3D11
+
+	D3D11_BUFFER_DESC vertexBufferDesc = {};
+	vertexBufferDesc.ByteWidth = _desc->size;
+	vertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+	switch ( _desc->type )
+	{
+	case WV_BUFFER_TYPE_INDEX: vertexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER; break;
+	case WV_BUFFER_TYPE_VERTEX: vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER; break;
+	case WV_BUFFER_TYPE_UNIFORM: vertexBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER; break;
+	default:
+		return nullptr;
+	}
+
+	// TODO immutable
+	switch ( _desc->usage )
+	{
+	case WV_BUFFER_USAGE_STATIC_DRAW: vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC; break;
+	case WV_BUFFER_USAGE_DYNAMIC_DRAW: vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC; break;
+	default:
+		return nullptr;
+	}
+
+	ID3D11Buffer* gpuBuffer;
+
+	HRESULT hr;
+	hr = m_device->CreateBuffer(
+		&vertexBufferDesc,
+		nullptr,
+		&gpuBuffer);
+	if ( FAILED( hr ) )
+	{
+		Debug::Print( Debug::WV_PRINT_ERROR, "Failed to create gpu buffer. (%d) %s\n", hr, getErrorMessage( hr ).c_str() );
+		return nullptr;
+	}
+
+	m_dataBufferMap[ ++m_dataBuffers ] = gpuBuffer;
+
 	cGPUBuffer& buffer = *new cGPUBuffer();
-	buffer.type  = _desc->type;
+	buffer.type = _desc->type;
 	buffer.usage = _desc->usage;
-	buffer.name  = _desc->name;
-
-	GLenum target = getGlBufferEnum( buffer.type );
-	
-	//glGenBuffers( 1, &buffer.handle );
-
-	glCreateBuffers( 1, &buffer.handle );
-	glBindBuffer( target, buffer.handle );
-
-	assertGLError( "Failed to create buffer\n" );
+	buffer.name = _desc->name;
+	buffer.handle = m_dataBuffers;
 
 	if ( _desc->size > 0 )
 		allocateBuffer( &buffer, _desc->size );
-	
-	glBindBuffer( target, 0 );
 	
 	return &buffer;
 #else 
@@ -655,21 +772,28 @@ void wv::cDirectX11GraphicsDevice::bufferData( cGPUBuffer* _buffer )
 {
 	WV_TRACE();
 
-	Debug::Print( Debug::WV_PRINT_INFO, "bufferData\n" );
+#ifdef WV_SUPPORT_D3D11
+	auto iter = m_dataBufferMap.find( _buffer->handle );
+	if ( iter == m_dataBufferMap.end() )
+	{
+		return; // todo
+	}
 
-#ifdef WV_SUPPORT_OPENGL_TEMP
+
 	cGPUBuffer& buffer = *_buffer;
-
 	if ( buffer.pData == nullptr || buffer.size == 0 )
 	{
 		Debug::Print( Debug::WV_PRINT_ERROR, "Cannot submit buffer with 0 data or size\n" );
 		return;
 	}
 
-	glNamedBufferSubData( buffer.handle, 0, buffer.size, buffer.pData );
-	
-	WV_ASSERT_ERR( "Failed to buffer data\n" );
-	
+	ID3D11Buffer* d3d11buffer = iter->second;
+
+	D3D11_MAPPED_SUBRESOURCE resource;
+	m_deviceContext->Map( d3d11buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &resource );
+	// TODO: Validate size
+	memcpy( resource.pData, _buffer->pData, buffer.size );
+	m_deviceContext->Unmap( d3d11buffer, 0 );
 #endif
 }
 
@@ -677,40 +801,30 @@ void wv::cDirectX11GraphicsDevice::bufferData( cGPUBuffer* _buffer )
 
 void wv::cDirectX11GraphicsDevice::allocateBuffer( cGPUBuffer* _buffer, size_t _size )
 {
-	Debug::Print( Debug::WV_PRINT_INFO, "allocate buffer\n" );
+	WV_TRACE();
+
 #ifdef WV_SUPPORT_D3D11
-	D3D11_BUFFER_DESC desc;
-	desc.ByteWidth = _size;
-	desc.Usage = D3D11_USAGE_DEFAULT;
-	desc.MiscFlags = 0;
-	desc.StructureByteStride = 1;
-	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE;
-	
-	ID3D11Buffer* buffer = nullptr;
-
-	HRESULT hr;
-	hr = m_device->CreateBuffer( &desc, nullptr, &buffer );
-	if ( FAILED( hr ) )
+	auto iter = m_dataBufferMap.find( _buffer->handle );
+	if ( iter == m_dataBufferMap.end() )
 	{
-		Debug::Print( Debug::WV_PRINT_FATAL, "Failed to allocate buffer. (%d)", hr );
-		return;
+		return; // todo
 	}
-#endif
 
-	/*
+	
 	cGPUBuffer& buffer = *_buffer;
-
 	if ( buffer.pData )
 		delete[] buffer.pData;
-	
-	GLenum usage = getGlBufferUsage( buffer.usage );
 	buffer.pData = new uint8_t[ _size ];
-	buffer.size  = _size;
+	buffer.size = _size;
 
-	glNamedBufferData( buffer.handle, _size, 0, usage );
+	ID3D11Buffer* d3d11buffer = iter->second;
 
-	WV_ASSERT_ERR( "Failed to allocate buffer\n" );
-*/
+	D3D11_MAPPED_SUBRESOURCE resource;
+	m_deviceContext->Map( d3d11buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &resource );
+	// TODO: Validate size
+	memcpy( resource.pData, _buffer->pData, buffer.size );
+	m_deviceContext->Unmap( d3d11buffer, 0 );
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -719,8 +833,14 @@ void wv::cDirectX11GraphicsDevice::destroyGPUBuffer( cGPUBuffer* _buffer )
 {
 	WV_TRACE();
 
-#ifdef WV_SUPPORT_OPENGL_TEMP
-	glDeleteBuffers( 1, &_buffer->handle );
+#ifdef WV_SUPPORT_D3D11
+	auto iter = m_dataBufferMap.find( _buffer->handle );
+	if ( iter != m_dataBufferMap.end() )
+	{
+		iter->second->Release();
+		m_dataBufferMap.erase(iter);
+	}
+	
 	if ( _buffer->pData )
 	{
 		delete[] _buffer->pData;
@@ -740,13 +860,16 @@ void wv::cDirectX11GraphicsDevice::destroyGPUBuffer( cGPUBuffer* _buffer )
 wv::cMesh* wv::cDirectX11GraphicsDevice::createMesh( sMeshDesc* _desc )
 {
 	WV_TRACE();
+	Debug::Print( Debug::WV_PRINT_INFO, "createMesh\n" );
 
-#ifdef WV_SUPPORT_OPENGL_TEMP
+#ifdef WV_SUPPORT_D3D11
 	cMesh& mesh = *new cMesh();
+	/*
 	glGenVertexArrays( 1, &mesh.handle );
 	glBindVertexArray( mesh.handle );
 
 	WV_ASSERT_ERR( "ERROR\n" );
+	*/
 
 	sGPUBufferDesc vbDesc;
 	vbDesc.name  = "vbo";
@@ -759,9 +882,11 @@ wv::cMesh* wv::cDirectX11GraphicsDevice::createMesh( sMeshDesc* _desc )
 	uint32_t count = _desc->sizeVertices / sizeof( Vertex );
 	mesh.vertexBuffer->count = count;
 	
+	/*
 	glBindBuffer( GL_ARRAY_BUFFER, mesh.vertexBuffer->handle );
 	
 	WV_ASSERT_ERR( "ERROR\n" );
+	*/
 
 	mesh.vertexBuffer->buffer( (uint8_t*)_desc->vertices, _desc->sizeVertices );
 	bufferData( mesh.vertexBuffer );
@@ -778,7 +903,7 @@ wv::cMesh* wv::cDirectX11GraphicsDevice::createMesh( sMeshDesc* _desc )
 		mesh.indexBuffer = createGPUBuffer( &ibDesc );
 		mesh.indexBuffer->count = _desc->numIndices;
 		
-		glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer->handle );
+		// glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mesh.indexBuffer->handle );
 		
 		WV_ASSERT_ERR( "ERROR\n" );
 
@@ -812,6 +937,7 @@ wv::cMesh* wv::cDirectX11GraphicsDevice::createMesh( sMeshDesc* _desc )
 		stride += element.size;
 	}
 
+	/*
 	for ( unsigned int i = 0; i < _desc->layout.numElements; i++ )
 	{
 		sVertexAttribute& element = _desc->layout.elements[ i ];
@@ -841,14 +967,13 @@ wv::cMesh* wv::cDirectX11GraphicsDevice::createMesh( sMeshDesc* _desc )
 
 	glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	glBindVertexArray( 0 );
-	
-	WV_ASSERT_ERR( "ERROR\n" );
+	*/
 
 	mesh.vertexBuffer->stride = stride;
 	
 	if( _desc->pParentTransform != nullptr )
 		_desc->pParentTransform->addChild( &mesh.transform );
-	
+
 	return &mesh;
 #else
 	return nullptr;

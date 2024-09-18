@@ -12,7 +12,7 @@ static float4 FragColor;
 
 struct SPIRV_Cross_Input
 {
-    float2 TexCoord : TEXCOORD0;
+    float2 TexCoord : TEXCOORD1;
 };
 
 struct SPIRV_Cross_Output

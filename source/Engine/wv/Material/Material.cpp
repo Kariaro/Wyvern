@@ -140,9 +140,16 @@ void wv::cMaterial::setDefaultMeshUniforms( sMesh* _mesh )
 
 #elif defined( WV_PLATFORM_WINDOWS )
 	// model transform
-	wv::cGPUBuffer& instanceBlock = *m_pPipeline->getShaderBuffer( "UbInstanceData" );
-	instanceBlock.buffer( &m_UbInstanceData );
-	
+	wv::cGPUBuffer* instanceBlock = m_pPipeline->getShaderBuffer( "UbInstanceData" );
+	if ( instanceBlock == nullptr )
+	{
+		Debug::Print( Debug::WV_PRINT_ERROR, "UbInstanceData does not exist as a shader buffer\n" );
+	}
+	else
+	{
+		instanceBlock->buffer( &m_UbInstanceData );
+	}
+
 	// bind textures
 	int texSlot = 0;
 	for( int i = 0; i < ( int )m_variables.size(); i++ )
