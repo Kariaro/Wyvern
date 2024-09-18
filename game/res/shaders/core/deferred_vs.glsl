@@ -1,4 +1,3 @@
-
 layout(location = 0) in vec3 a_Pos;
 layout(location = 1) in vec3 a_Normal;
 layout(location = 2) in vec3 a_Tangent;
@@ -10,7 +9,7 @@ out gl_PerVertex
     vec4 gl_Position;
 };
 
-out vec2 TexCoord;
+layout(location = 0) out vec2 TexCoord;
 
 void main()
 {

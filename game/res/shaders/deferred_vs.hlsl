@@ -1,16 +1,6 @@
-cbuffer UbInstanceData : register(b1)
-{
-    row_major float4x4 _31_u_Projection : packoffset(c0);
-    row_major float4x4 _31_u_View : packoffset(c4);
-    row_major float4x4 _31_u_Model : packoffset(c8);
-};
-
-
 static float4 gl_Position;
 static float2 TexCoord;
 static float2 a_TexCoord0;
-static float3 Normal;
-static float3 Pos;
 static float3 a_Pos;
 static float3 a_Normal;
 static float3 a_Tangent;
@@ -27,18 +17,14 @@ struct SPIRV_Cross_Input
 
 struct SPIRV_Cross_Output
 {
-    float2 TexCoord : TEXCOORD1;
-    float3 Normal : TEXCOORD2;
-    float3 Pos : TEXCOORD3;
+    float2 TexCoord : TEXCOORD0;
     float4 gl_Position : SV_Position;
 };
 
 void vert_main()
 {
     TexCoord = a_TexCoord0;
-    Normal = 0.0f.xxx;
-    Pos = a_Pos;
-    gl_Position = mul(float4(a_Pos, 1.0f), mul(_31_u_Model, mul(_31_u_View, _31_u_Projection)));
+    gl_Position = float4(a_Pos, 1.0f);
 }
 
 SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
@@ -52,7 +38,5 @@ SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
     SPIRV_Cross_Output stage_output;
     stage_output.gl_Position = gl_Position;
     stage_output.TexCoord = TexCoord;
-    stage_output.Normal = Normal;
-    stage_output.Pos = Pos;
     return stage_output;
 }

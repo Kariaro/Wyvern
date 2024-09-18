@@ -104,6 +104,7 @@ void cDemoWindow::updateImpl( double _deltaTime )
 void cDemoWindow::drawImpl( wv::iDeviceContext* _context, wv::iGraphicsDevice* _device )
 {
 #ifdef WV_SUPPORT_IMGUI
+	/*
 	ImGui::Begin( "Wyvern Demo", nullptr, ImGuiWindowFlags_AlwaysAutoResize );
 	
 	ImGui::InputInt( "Spawn Count", &m_numToSpawn );
@@ -123,5 +124,6 @@ void cDemoWindow::drawImpl( wv::iDeviceContext* _context, wv::iGraphicsDevice* _
 	ImGui::SameLine();
 
 	ImGui::End();
+	*/
 #endif
 }

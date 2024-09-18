@@ -1,8 +1,9 @@
 cbuffer UbInstanceData : register(b1)
 {
-    row_major float4x4 _31_u_Projection : packoffset(c0);
-    row_major float4x4 _31_u_View : packoffset(c4);
-    row_major float4x4 _31_u_Model : packoffset(c8);
+    row_major float4x4 _17_u_Projection : packoffset(c0);
+    row_major float4x4 _17_u_View : packoffset(c4);
+    row_major float4x4 _17_u_Model : packoffset(c8);
+    float2 _17_u_UVOffset : packoffset(c12);
 };
 
 
@@ -35,10 +36,10 @@ struct SPIRV_Cross_Output
 
 void vert_main()
 {
-    TexCoord = a_TexCoord0;
+    TexCoord = a_TexCoord0 + _17_u_UVOffset;
     Normal = 0.0f.xxx;
     Pos = a_Pos;
-    gl_Position = mul(float4(a_Pos, 1.0f), mul(_31_u_Model, mul(_31_u_View, _31_u_Projection)));
+    gl_Position = mul(float4(a_Pos, 1.0f), mul(_17_u_Model, mul(_17_u_View, _17_u_Projection)));
 }
 
 SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)

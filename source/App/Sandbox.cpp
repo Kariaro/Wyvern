@@ -50,6 +50,11 @@ bool cSandbox::create( void )
 	ctxDesc.graphicsApi = wv::WV_GRAPHICS_API_OPENGL;
 	ctxDesc.graphicsApiVersion.major = 4;
 	ctxDesc.graphicsApiVersion.minor = 6;
+
+	ctxDesc.deviceApi = wv::WV_DEVICE_CONTEXT_API_GLFW;
+	ctxDesc.graphicsApi = wv::WV_GRAPHICS_API_D3D11;
+	ctxDesc.graphicsApiVersion.major = 11;
+	ctxDesc.graphicsApiVersion.minor = 0;
 #elif defined( WV_PLATFORM_PSVITA )
 	ctxDesc.deviceApi   = wv::WV_DEVICE_CONTEXT_API_PSVITA;
 	ctxDesc.graphicsApi = wv::WV_GRAPHICS_API_PSVITA;

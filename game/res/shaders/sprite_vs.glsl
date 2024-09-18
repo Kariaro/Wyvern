@@ -10,9 +10,10 @@ layout(binding = 1) uniform UbInstanceData
     mat4x4 u_Projection;
     mat4x4 u_View;
     mat4x4 u_Model;
+    vec2 u_UVOffset;
 };
 
-out gl_PerVertex
+layout(location = 0) out gl_PerVertex
 {
     vec4 gl_Position;
 };
@@ -23,7 +24,7 @@ layout(location = 3) out vec3 Pos;
 
 void main()
 {
-    TexCoord = a_TexCoord0;
+    TexCoord = a_TexCoord0 + u_UVOffset;
     Normal = vec3( 0.0 );
     Pos = a_Pos;
 

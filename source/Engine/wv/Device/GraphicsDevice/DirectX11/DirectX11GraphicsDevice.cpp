@@ -18,6 +18,13 @@
 
 #include <wv/Device/DeviceContext.h>
 
+#ifdef WV_SUPPORT_D3D11
+#pragma comment( lib, "d3d11.lib" )
+#pragma comment( lib, "DXGI.lib" )
+#pragma comment( lib, "d3dcompiler.lib" )
+#include <d3dcompiler.h>
+#endif
+
 #ifdef WV_SUPPORT_GLFW
 #include <wv/Device/DeviceContext/GLFW/GLFWDeviceContext.h>
 #include <GLFW/glfw3native.h>
@@ -32,6 +39,7 @@
 #include <sstream>
 #include <fstream>
 #include <vector>
+
 
 #define WV_HARD_ASSERT 0
 
@@ -53,9 +61,8 @@
 wv::cDirectX11GraphicsDevice::cDirectX11GraphicsDevice()
 {
 	WV_TRACE();
-	m_graphicsApi = WV_GRAPHICS_API_D3D11;
 
-	IDXGIFactory* pFactory;
+	IDXGIFactory* pFactory = nullptr;
 
 	// Create a DXGIFactory object.
 	HRESULT hr = CreateDXGIFactory( __uuidof( IDXGIFactory ), reinterpret_cast<void**>( &pFactory ) );
@@ -73,8 +80,41 @@ wv::cDirectX11GraphicsDevice::cDirectX11GraphicsDevice()
 		index += 1;
 	}
 
+	pFactory->Release();
+}
 
-	// TODO : delete pFactory ?????
+///////////////////////////////////////////////////////////////////////////////////////
+
+HWND getHwndFromDeviceDesc( wv::iDeviceContext* _context )
+{
+	switch ( _context->getContextAPI() )
+	{
+#ifdef WV_SUPPORT_GLFW
+	case wv::WV_DEVICE_CONTEXT_API_GLFW:
+	{
+		auto* pointer = dynamic_cast<wv::GLFWDeviceContext*>( _context );
+		if ( pointer == nullptr )
+			return HWND( 0 );
+
+		return glfwGetWin32Window( pointer->m_windowContext );
+	}
+#endif
+#ifdef WV_SUPPORT_SDL2
+	case wv::WV_DEVICE_CONTEXT_API_SDL:
+	{
+		auto* pointer = dynamic_cast<wv::SDLDeviceContext*>( _context );
+		if ( pointer == nullptr )
+			return HWND( 0 );
+
+		SDL_SysWMinfo wmInfo;
+		SDL_VERSION( &wmInfo.version );
+		SDL_GetWindowWMInfo( pointer->m_windowContext, &wmInfo );
+		return wmInfo.info.win.window;
+	}
+#endif
+	default:
+		return HWND( 0 );
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -84,7 +124,7 @@ bool wv::cDirectX11GraphicsDevice::initialize( GraphicsDeviceDesc* _desc )
 	WV_TRACE();
 
 #ifdef WV_SUPPORT_D3D11
-	m_graphicsApi = WV_GRAPHICS_API_D3D11;
+	m_graphicsApi = _desc->pContext->getGraphicsAPI();
 	
 	Debug::Print( Debug::WV_PRINT_DEBUG, "Initializing Graphics Device...\n" );
 
@@ -102,7 +142,6 @@ bool wv::cDirectX11GraphicsDevice::initialize( GraphicsDeviceDesc* _desc )
 	Debug::Print( Debug::WV_PRINT_INFO, "Intialized Graphics Device\n" );
 	// Debug::Print( Debug::WV_PRINT_INFO, "  %s\n", glGetString( GL_VERSION ) );
 
-	// D3D11CreateDeviceAndSwapChain
 	m_graphicsApiVersion.major = 11;
 	m_graphicsApiVersion.minor = 0;
 	
@@ -124,38 +163,7 @@ bool wv::cDirectX11GraphicsDevice::initialize( GraphicsDeviceDesc* _desc )
 	scd.SampleDesc.Count = 1;
 	scd.SampleDesc.Quality = 0;
 
-	HWND window = 0;
-	switch ( _desc->pContext->getContextAPI() )
-	{
-#ifdef WV_SUPPORT_GLFW
-	case WV_DEVICE_CONTEXT_API_GLFW:
-	{
-		auto* pointer = dynamic_cast<GLFWDeviceContext*>( _desc->pContext );
-		if ( pointer == nullptr )
-			return false;
-
-		window = glfwGetWin32Window( pointer->m_windowContext );
-		break;
-	}
-#endif
-#ifdef WV_SUPPORT_SDL2
-	case WV_DEVICE_CONTEXT_API_SDL:
-	{
-		auto* pointer = dynamic_cast<SDLDeviceContext*>( _desc->pContext );
-		if ( pointer == nullptr )
-			return false;
-
-		SDL_SysWMinfo wmInfo;
-		SDL_VERSION( &wmInfo.version );
-		SDL_GetWindowWMInfo( pointer->m_windowContext, &wmInfo );
-		window = wmInfo.info.win.window;
-		break;
-	}
-#endif
-	default:
-		return false;
-	}
-
+	HWND window = getHwndFromDeviceDesc( _desc->pContext );
 	if (window == 0)
 	{
 		return false;
@@ -204,6 +212,21 @@ bool wv::cDirectX11GraphicsDevice::initialize( GraphicsDeviceDesc* _desc )
 
 	m_deviceContext->OMSetRenderTargets( 1, &m_renderTargetView, NULL );
 
+	
+	ID3D11Debug* d3dDebug = nullptr;
+	m_device->QueryInterface( __uuidof( ID3D11Debug ), (void**)&d3dDebug );
+	if ( d3dDebug )
+	{
+		ID3D11InfoQueue* d3dInfoQueue = nullptr;
+		if ( SUCCEEDED( d3dDebug->QueryInterface( __uuidof( ID3D11InfoQueue ), (void**)&d3dInfoQueue ) ) )
+		{
+			d3dInfoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_CORRUPTION, true );
+			d3dInfoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_ERROR, true );
+			d3dInfoQueue->Release();
+		}
+		d3dDebug->Release();
+	}
+
 	// int numTextureUnits = 0;
 	// m_boundTextureSlots.assign( numTextureUnits, 0 );
 	return true;
@@ -230,8 +253,15 @@ void wv::cDirectX11GraphicsDevice::setViewport( int _width, int _height )
 {
 	WV_TRACE();
 
-#ifdef WV_SUPPORT_OPENGL_TEMP
-	glViewport( 0, 0, _width, _height );
+#ifdef WV_SUPPORT_D3D11
+	D3D11_VIEWPORT viewport = {
+		0.0f,
+		0.0f,
+		_width,
+		_height,
+		0.0f,
+		1.0f };
+	m_deviceContext->RSSetViewports( 1, &viewport );
 #endif
 }
 
@@ -335,8 +365,11 @@ void wv::cDirectX11GraphicsDevice::setClearColor( const wv::cColor& _color )
 {
 	WV_TRACE();
 
-#ifdef WV_SUPPORT_OPENGL_TEMP
-	glClearColor( _color.r, _color.g, _color.b, _color.a );
+#ifdef WV_SUPPORT_D3D11
+	m_clearBackgroundColor[ 0 ] = _color.r;
+	m_clearBackgroundColor[ 1 ] = _color.g;
+	m_clearBackgroundColor[ 2 ] = _color.b;
+	m_clearBackgroundColor[ 3 ] = _color.a;
 #endif
 }
 
@@ -369,29 +402,81 @@ wv::sShaderProgram* wv::cDirectX11GraphicsDevice::createProgram( sShaderProgramD
 
 	if ( type == eShaderProgramType::WV_SHADER_TYPE_VERTEX )
 	{
+		const char* pEntrypoint = "main";
+		ID3DBlob* errorBlob;
+		ID3DBlob* shaderBlob;
+		if ( FAILED( D3DCompile(
+			_desc->source.data->data,
+			_desc->source.data->size,
+			nullptr,
+			nullptr,
+			D3D_COMPILE_STANDARD_FILE_INCLUDE,
+			pEntrypoint,
+			"vs_5_0",
+			D3DCOMPILE_ENABLE_STRICTNESS,
+			0,
+		    &shaderBlob,
+			&errorBlob
+			) ) )
+		{
+			Debug::Print( Debug::WV_PRINT_ERROR, "D3D11 Failed to read Vertex shader\n" );
+			if ( errorBlob != nullptr )
+			{
+				Debug::Print( Debug::WV_PRINT_ERROR, "Message: %s\n", (char*) errorBlob->GetBufferPointer() );
+				errorBlob->Release();
+			}
+			return nullptr;
+		}
+
 		ID3D11VertexShader* vsShader;
 		hr = m_device->CreateVertexShader(
-			_desc->source.data,
-			_desc->source.data->size,
+			shaderBlob->GetBufferPointer(),
+			shaderBlob->GetBufferSize(),
 			nullptr,
 			&vsShader);
 		if ( FAILED( hr ) )
 		{
-			Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create vertex shader. (%d)\n", hr );
+			Debug::Print( Debug::WV_PRINT_FATAL, "Failed to compile vertex shader. (%d)\n", hr );
 			return nullptr;
 		}
 
 		m_vertexShaderMap[ ++m_vertexShaders ] = vsShader;
+		m_vertexShaderBlobMap[ m_vertexShaders ] = shaderBlob;
 		sShaderProgram* program = new sShaderProgram();
 		program->handle = m_vertexShaders;
 		return program;
 	}
 	else if ( type == eShaderProgramType::WV_SHADER_TYPE_FRAGMENT )
 	{
+		const char* pEntrypoint = "main";
+		ID3DBlob* errorBlob;
+		ID3DBlob* shaderBlob;
+		if ( FAILED( D3DCompile(
+			_desc->source.data->data,
+			_desc->source.data->size,
+			nullptr,
+			nullptr,
+			D3D_COMPILE_STANDARD_FILE_INCLUDE,
+			pEntrypoint,
+			"ps_5_0",
+			D3DCOMPILE_ENABLE_STRICTNESS,
+			0,
+			&shaderBlob,
+			&errorBlob ) ) )
+		{
+			Debug::Print( Debug::WV_PRINT_ERROR, "D3D11 Failed to read fragment shader\n" );
+			if ( errorBlob != nullptr )
+			{
+				Debug::Print( Debug::WV_PRINT_ERROR, "Message: %s\n", (char*) errorBlob->GetBufferPointer() );
+				errorBlob->Release();
+			}
+			return nullptr;
+		}
+
 		ID3D11PixelShader* piShader;
 		hr = m_device->CreatePixelShader(
-			_desc->source.data,
-			_desc->source.data->size,
+			shaderBlob->GetBufferPointer(),
+			shaderBlob->GetBufferSize(),
 			nullptr,
 			&piShader );
 		if ( FAILED( hr ) )
@@ -425,6 +510,13 @@ void wv::cDirectX11GraphicsDevice::destroyProgram( sShaderProgram* _pProgram )
 			iter->second->Release();
 			m_vertexShaderMap.erase( iter );
 		}
+
+		auto iter2 = m_vertexShaderBlobMap.find( _pProgram->handle );
+		if ( iter2 != m_vertexShaderBlobMap.end() )
+		{
+			iter->second->Release();
+			m_vertexShaderBlobMap.erase( iter2 );
+		}
 	}
 	else if ( _pProgram->type == eShaderProgramType::WV_SHADER_TYPE_FRAGMENT )
 	{
@@ -447,26 +539,44 @@ wv::sPipeline* wv::cDirectX11GraphicsDevice::createPipeline( sPipelineDesc* _des
 	
 #ifdef WV_SUPPORT_D3D11
 	ID3D11InputLayout* inputLayout;
+	
+	/*
+	wv::sVertexAttribute attributes[] = {
+		{ "aPosition", 3, wv::WV_FLOAT, false, sizeof( float ) * 3 }, // vec3f pos
+		{ "aNormal", 3, wv::WV_FLOAT, false, sizeof( float ) * 3 },   // vec3f normal
+		{ "aTangent", 3, wv::WV_FLOAT, false, sizeof( float ) * 3 },  // vec3f tangent
+		{ "aColor", 4, wv::WV_FLOAT, false, sizeof( float ) * 4 },    // vec4f col
+		{ "aTexCoord0", 2, wv::WV_FLOAT, false, sizeof( float ) * 2 } // vec2f texcoord0
+	};
+	*/
+
 	D3D11_INPUT_ELEMENT_DESC inputElementDesc[] = {
 		{ "POS", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		/*
-		{ "COL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "NOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TAN", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COL", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "TEX", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		 */
 	};
 	HRESULT hr;
 
-	sShaderProgramSource& source = ( *_desc->pVertexProgram )->source;
+	wv::Handle vertexHandle = ( *_desc->pVertexProgram )->handle;
+	auto iter = m_vertexShaderBlobMap.find(vertexHandle);
+	if ( iter == m_vertexShaderBlobMap.end() )
+	{
+		Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create input layout could not find vertex shader blob\n" );
+		return nullptr;
+
+	}
+
 	hr = m_device->CreateInputLayout(
 		inputElementDesc,
 		ARRAYSIZE( inputElementDesc ),
-		source.data->data,
-		source.data->size,
+		iter->second->GetBufferPointer(),
+		iter->second->GetBufferSize(),
 		&inputLayout );
 	if ( FAILED( hr ) )
 	{
-		Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create input layout. (%d)", hr );
+		Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create input layout. (%d)\n", hr );
 		return nullptr;
 	}
 
@@ -512,6 +622,7 @@ wv::cGPUBuffer* wv::cDirectX11GraphicsDevice::createGPUBuffer( sGPUBufferDesc* _
 {
 	WV_TRACE();
 
+	Debug::Print( Debug::WV_PRINT_INFO, "createGPUBuffer\n" );
 #ifdef WV_SUPPORT_OPENGL_TEMP
 	cGPUBuffer& buffer = *new cGPUBuffer();
 	buffer.type  = _desc->type;
@@ -544,6 +655,8 @@ void wv::cDirectX11GraphicsDevice::bufferData( cGPUBuffer* _buffer )
 {
 	WV_TRACE();
 
+	Debug::Print( Debug::WV_PRINT_INFO, "bufferData\n" );
+
 #ifdef WV_SUPPORT_OPENGL_TEMP
 	cGPUBuffer& buffer = *_buffer;
 
@@ -564,6 +677,7 @@ void wv::cDirectX11GraphicsDevice::bufferData( cGPUBuffer* _buffer )
 
 void wv::cDirectX11GraphicsDevice::allocateBuffer( cGPUBuffer* _buffer, size_t _size )
 {
+	Debug::Print( Debug::WV_PRINT_INFO, "allocate buffer\n" );
 #ifdef WV_SUPPORT_D3D11
 	D3D11_BUFFER_DESC desc;
 	desc.ByteWidth = _size;
@@ -906,6 +1020,19 @@ void wv::cDirectX11GraphicsDevice::bindTextureToSlot( Texture* _texture, unsigne
 	m_boundTextureSlots[ _slot ] = _texture->getHandle();
 #endif
 }
+
+///////////////////////////////////////////////////////////////////////////////////////
+
+void wv::cDirectX11GraphicsDevice::swapBuffers()
+{
+	WV_TRACE();
+
+#ifdef WV_SUPPORT_D3D11
+	m_deviceContext->ClearRenderTargetView( m_renderTargetView, m_clearBackgroundColor );
+	m_swapChain->Present( 1, 0 );
+#endif
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////
 
 void wv::cDirectX11GraphicsDevice::draw( cMesh* _pMesh )

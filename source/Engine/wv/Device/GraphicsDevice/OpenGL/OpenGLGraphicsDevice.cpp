@@ -583,7 +583,8 @@ wv::sMesh* wv::cOpenGLGraphicsDevice::createMesh( sMeshDesc* _desc )
 	WV_TRACE();
 
 #ifdef WV_SUPPORT_OPENGL
-	sMesh& mesh = *new sMesh();
+	cMesh* pMesh = new cMesh();
+	cMesh& mesh = *pMesh;
 	glGenVertexArrays( 1, &mesh.handle );
 	glBindVertexArray( mesh.handle );
 
@@ -690,7 +691,7 @@ wv::sMesh* wv::cOpenGLGraphicsDevice::createMesh( sMeshDesc* _desc )
 	if( _desc->pParentTransform != nullptr )
 		_desc->pParentTransform->addChild( &mesh.transform );
 	
-	return &mesh;
+	return pMesh;
 #else
 	return nullptr;
 #endif

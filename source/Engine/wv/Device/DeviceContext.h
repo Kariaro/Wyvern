@@ -69,7 +69,7 @@ namespace wv
 
 		virtual void initImGui() { Debug::Print( Debug::WV_PRINT_ERROR, "initImGui not implemented\n" ); }
 		virtual void terminateImGui() { }
-		virtual void newImGuiFrame() { Debug::Print( Debug::WV_PRINT_ERROR, "newImGuiFrame not implemented\n" ); }
+		virtual bool newImGuiFrame() { Debug::Print( Debug::WV_PRINT_ERROR, "newImGuiFrame not implemented\n" ); return false; }
 		virtual void renderImGui() { Debug::Print( Debug::WV_PRINT_ERROR, "renderImGui not implemented\n" ); }
 
 		virtual void terminate() = 0;

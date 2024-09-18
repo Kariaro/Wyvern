@@ -1,10 +1,13 @@
+Texture2D<float4> u_Albedo : register(t0);
+SamplerState _u_Albedo_sampler : register(s0);
+
 static float4 o_Albedo;
+static float2 TexCoord;
 static float4 o_Normal;
 static float3 Normal;
 static float4 o_Position;
 static float3 Pos;
 static float4 o_RoughnessMetallic;
-static float2 TexCoord;
 
 struct SPIRV_Cross_Input
 {
@@ -23,7 +26,7 @@ struct SPIRV_Cross_Output
 
 void frag_main()
 {
-    o_Albedo = 0.0f.xxxx;
+    o_Albedo = u_Albedo.Sample(_u_Albedo_sampler, TexCoord);
     o_Normal = float4(Normal, 1.0f);
     o_Position = float4(Pos, 1.0f);
     o_RoughnessMetallic = 1.0f.xxxx;
@@ -31,9 +34,9 @@ void frag_main()
 
 SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
 {
+    TexCoord = stage_input.TexCoord;
     Normal = stage_input.Normal;
     Pos = stage_input.Pos;
-    TexCoord = stage_input.TexCoord;
     frag_main();
     SPIRV_Cross_Output stage_output;
     stage_output.o_Albedo = o_Albedo;

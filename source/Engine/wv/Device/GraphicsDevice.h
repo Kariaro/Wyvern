@@ -68,6 +68,9 @@ namespace wv
 		void drawNode( sMeshNode* _node );
 
 		std::thread::id getThreadID() { return m_threadID; }
+		GraphicsAPI getGraphicsApi() { return m_graphicsApi; }
+
+		virtual void swapBuffers() {};
 
 		[[nodiscard]] uint32_t getCommandBuffer();
 		
@@ -122,8 +125,6 @@ namespace wv
 
 		virtual void draw( sMesh* _pMesh ) = 0;
 		virtual void drawIndices( uint32_t _numIndices ) = 0;
-
-		GraphicsAPI getGraphicsApi() { return m_graphicsApi; }
 
 ///////////////////////////////////////////////////////////////////////////////////////
 		

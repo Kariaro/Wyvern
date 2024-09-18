@@ -11,8 +11,6 @@
 #include <wv/Device/GraphicsDevice.h>
 
 #ifdef WV_SUPPORT_D3D11>
-#pragma comment( lib, "d3d11.lib" )
-#pragma comment( lib, "DXGI.lib" )
 #include <d3d11.h>
 #endif
 
@@ -69,6 +67,7 @@ namespace wv
 
 		virtual void bindTextureToSlot( Texture* _texture, unsigned int _slot ) override;
 
+		virtual void swapBuffers() override;
 		virtual void draw( cMesh* _pMesh ) override;
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -83,8 +82,11 @@ namespace wv
 		ID3D11Texture2D* m_backBuffer;
 		ID3D11RenderTargetView* m_renderTargetView;
 
+		FLOAT m_clearBackgroundColor[ 4 ] = { 0.1f, 0.2f, 0.6f, 1.0f };
+
 		uint32_t m_vertexShaders = 0;
 		std::unordered_map<wv::Handle, ID3D11VertexShader*> m_vertexShaderMap;
+		std::unordered_map<wv::Handle, ID3DBlob*> m_vertexShaderBlobMap;
 		uint32_t m_pixelShaders = 0;
 		std::unordered_map<wv::Handle, ID3D11PixelShader*> m_pixelShaderMap;
 		uint32_t m_inputLayouts = 0;

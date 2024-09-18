@@ -2,16 +2,11 @@
 precision mediump float;
 #endif
 
-/// TODO: reflect to CPU so binding=0 doesn't need to be used
-#if GL_ES 
-uniform sampler2D u_Albedo;
-#else
 layout(binding = 0) uniform sampler2D u_Albedo;
-#endif
 
-in vec2 TexCoord;
-in vec3 Normal;
-in vec3 Pos;
+layout(location = 0) in vec2 TexCoord;
+layout(location = 1) in vec3 Normal;
+layout(location = 2) in vec3 Pos;
 
 layout(location = 0) out vec4 o_Albedo;
 layout(location = 1) out vec4 o_Normal;

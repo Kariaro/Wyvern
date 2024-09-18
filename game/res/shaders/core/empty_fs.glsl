@@ -2,9 +2,9 @@
 precision mediump float;
 #endif
 
-in vec2 TexCoord;
-in vec3 Normal;
-in vec3 Pos;
+layout(location = 0) in vec2 TexCoord;
+layout(location = 1) in vec3 Normal;
+layout(location = 2) in vec3 Pos;
 
 layout(location = 0) out vec4 o_Albedo;
 layout(location = 1) out vec4 o_Normal;

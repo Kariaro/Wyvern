@@ -265,7 +265,7 @@ void wv::SDLDeviceContext::terminateImGui()
 }
 
 
-void wv::SDLDeviceContext::newImGuiFrame()
+bool wv::SDLDeviceContext::newImGuiFrame()
 {
 #ifdef WV_SUPPORT_SDL2
 #ifdef WV_SUPPORT_IMGUI
@@ -275,10 +275,10 @@ void wv::SDLDeviceContext::newImGuiFrame()
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
-		break;
+		return true;
 	default:
-		Debug::Print( Debug::WV_PRINT_FATAL, "SDL context newImGuiFrame() graphics mode not supported" );
-		break;
+		// Debug::Print( Debug::WV_PRINT_FATAL, "SDL context newImGuiFrame() graphics mode not supported\n" );
+		return false;
 	}
 #endif
 #endif
@@ -289,15 +289,14 @@ void wv::SDLDeviceContext::renderImGui()
 {
 #ifdef WV_SUPPORT_SDL2
 #ifdef WV_SUPPORT_IMGUI
-	ImGui::Render();
-
 	switch ( m_graphicsApi )
 	{
 	case WV_GRAPHICS_API_OPENGL: case WV_GRAPHICS_API_OPENGL_ES1: case WV_GRAPHICS_API_OPENGL_ES2:
+		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData( ImGui::GetDrawData() );
 		break;
 	default:
-		Debug::Print( Debug::WV_PRINT_FATAL, "SDL context renderImGui() graphics mode not supported" );
+		// Debug::Print( Debug::WV_PRINT_FATAL, "SDL context renderImGui() graphics mode not supported\n" );
 		break;
 	}
 #endif

@@ -87,13 +87,15 @@ void wv::cSkyboxObject::updateImpl( double _deltaTime )
 void wv::cSkyboxObject::drawImpl( iDeviceContext* _context, iGraphicsDevice* _device )
 {
 	/// TODO: remove raw gl calls
+	
 #ifdef WV_SUPPORT_OPENGL
-	glDepthMask( GL_FALSE );
-	glDepthFunc( GL_LEQUAL );
+#endif
+	// glDepthMask( GL_FALSE );
+	// glDepthFunc( GL_LEQUAL );
 	m_mesh.draw();
 	m_mesh.pResource->drawInstances( _device ); 
-	glDepthFunc( GL_LESS );
-	glDepthMask( GL_TRUE );
-#endif
+	// glDepthFunc( GL_LESS );
+	// glDepthMask( GL_TRUE );
+
 	
 }

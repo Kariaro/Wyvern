@@ -23,7 +23,7 @@ struct SPIRV_Cross_Output
 
 void frag_main()
 {
-    o_Albedo = 0.0f.xxxx;
+    o_Albedo = float4(1.0f, 0.0f, 1.0f, 1.0f);
     o_Normal = float4(Normal, 1.0f);
     o_Position = float4(Pos, 1.0f);
     o_RoughnessMetallic = 1.0f.xxxx;

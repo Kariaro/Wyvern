@@ -379,7 +379,8 @@ void wv::cEngine::tick()
 
 #ifdef WV_SUPPORT_IMGUI
 	context->newImGuiFrame();
-	ImGui::DockSpaceOverViewport( 0, 0, ImGuiDockNodeFlags_PassthruCentralNode );
+	// ImGui::NewFrame();
+	// ImGui::DockSpaceOverViewport( 0, 0, ImGuiDockNodeFlags_PassthruCentralNode );
 #endif // WV_SUPPORT_IMGUI
 	
 	if( m_drawWireframe ) graphics->setFillMode( WV_FILL_MODE_WIREFRAME );
@@ -426,7 +427,8 @@ void wv::cEngine::tick()
 
 	graphics->endRender();
 
-	context->swapBuffers();
+	graphics->swapBuffers(); // window or graphics library need it
+	context->swapBuffers();  // window or graphics library need it
 
 #ifndef WV_PLATFORM_PSVITA
 	if( m_pIRTHandler )
@@ -511,7 +513,7 @@ void wv::cEngine::createScreenQuad()
 	indices.push_back( 0 );
 	indices.push_back( 1 );
 	indices.push_back( 2 );
-	wv::sMeshDesc prDesc;
+	wv::sMeshDesc prDesc{};
 	{
 		prDesc.layout = layout;
 

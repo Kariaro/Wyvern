@@ -275,7 +275,7 @@ void wv::GLFWDeviceContext::terminateImGui()
 #endif
 }
 
-void wv::GLFWDeviceContext::newImGuiFrame()
+bool wv::GLFWDeviceContext::newImGuiFrame()
 {
 #ifdef WV_SUPPORT_GLFW
 #ifdef WV_SUPPORT_IMGUI
@@ -285,9 +285,10 @@ void wv::GLFWDeviceContext::newImGuiFrame()
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
-		break;
+		return true;
 	default:
-		Debug::Print( Debug::WV_PRINT_FATAL, "GLFW context newImGuiFrame() graphics mode not supported" );
+		// Debug::Print( Debug::WV_PRINT_FATAL, "GLFW context newImGuiFrame() graphics mode not supported\n" );
+		return false;
 	}
 #endif
 #endif
@@ -297,15 +298,15 @@ void wv::GLFWDeviceContext::renderImGui()
 {
 #ifdef WV_SUPPORT_GLFW
 #ifdef WV_SUPPORT_IMGUI
-	ImGui::Render();
-
 	switch ( m_graphicsApi )
 	{
 	case WV_GRAPHICS_API_OPENGL: case WV_GRAPHICS_API_OPENGL_ES1: case WV_GRAPHICS_API_OPENGL_ES2:
+		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData( ImGui::GetDrawData() );
 		break;
 	default:
-		Debug::Print( Debug::WV_PRINT_FATAL, "GLFW context renderImGui() graphics mode not supported" );
+		// Debug::Print( Debug::WV_PRINT_FATAL, "GLFW context renderImGui() graphics mode not supported\n" );
+		break;
 	}
 #endif
 #endif
@@ -340,7 +341,14 @@ void wv::GLFWDeviceContext::pollEvents()
 void wv::GLFWDeviceContext::swapBuffers()
 {
 #ifdef WV_SUPPORT_GLFW
-	glfwSwapBuffers( m_windowContext );
+	if ( m_hasOpenGLContext )
+	{
+		glfwSwapBuffers( m_windowContext );
+	}
+	else
+	{
+		
+	}
 
 	// update frametime
 	float t = static_cast<float>( m_time );

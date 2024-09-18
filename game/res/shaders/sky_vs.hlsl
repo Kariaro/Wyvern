@@ -1,8 +1,8 @@
 cbuffer UbInstanceData : register(b1)
 {
-    row_major float4x4 _31_u_Projection : packoffset(c0);
-    row_major float4x4 _31_u_View : packoffset(c4);
-    row_major float4x4 _31_u_Model : packoffset(c8);
+    row_major float4x4 _28_u_Projection : packoffset(c0);
+    row_major float4x4 _28_u_View : packoffset(c4);
+    row_major float4x4 _28_u_Model : packoffset(c8);
 };
 
 
@@ -27,9 +27,9 @@ struct SPIRV_Cross_Input
 
 struct SPIRV_Cross_Output
 {
-    float2 TexCoord : TEXCOORD1;
-    float3 Normal : TEXCOORD2;
-    float3 Pos : TEXCOORD3;
+    float2 TexCoord : TEXCOORD0;
+    float3 Normal : TEXCOORD1;
+    float3 Pos : TEXCOORD2;
     float4 gl_Position : SV_Position;
 };
 
@@ -38,7 +38,9 @@ void vert_main()
     TexCoord = a_TexCoord0;
     Normal = 0.0f.xxx;
     Pos = a_Pos;
-    gl_Position = mul(float4(a_Pos, 1.0f), mul(_31_u_Model, mul(_31_u_View, _31_u_Projection)));
+    float3x3 _44 = float3x3(_28_u_View[0].xyz, _28_u_View[1].xyz, _28_u_View[2].xyz);
+    float4 p = mul(float4(a_Pos, 1.0f), mul(_28_u_Model, mul(float4x4(float4(_44[0].x, _44[0].y, _44[0].z, 0.0f), float4(_44[1].x, _44[1].y, _44[1].z, 0.0f), float4(_44[2].x, _44[2].y, _44[2].z, 0.0f), float4(0.0f, 0.0f, 0.0f, 1.0f)), _28_u_Projection)));
+    gl_Position = p.xyww;
 }
 
 SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)
