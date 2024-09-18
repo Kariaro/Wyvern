@@ -26,6 +26,7 @@ function target_platform_windows( target )
     
     if target:is_arch( "x64" ) then
         import(root.."platform.support.glfw"  )(target)
+		target:add ( "defines", "GLFW_EXPOSE_NATIVE_WIN32" )
 
         -- icon resource
         target:add( "files", "$(projectdir)\\resources/resource.rc" )
@@ -42,5 +43,6 @@ function target_platform_windows( target )
     import(root.."platform.support.assimp")(target)
     import(root.."platform.support.libsdl")(target) 
     import(root.."platform.support.imgui")(target) 
-    import(root.."platform.support.joltphysics")(target) 
+    import(root.."platform.support.joltphysics")(target)
+    import(root.."platform.support.d3d11")(target)
 end

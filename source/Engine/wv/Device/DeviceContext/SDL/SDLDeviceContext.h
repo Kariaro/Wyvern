@@ -42,6 +42,10 @@ namespace wv
 		void setTitle( const char* _title ) override;
 
 		void setSwapInterval( int _interval ) override;
+	
+	#ifdef WV_SUPPORT_SDL2
+		SDL_Window* m_windowContext = nullptr;
+	#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -51,9 +55,6 @@ namespace wv
 		
 		bool initialize( ContextDesc* _desc ) override;
 
-	#ifdef WV_SUPPORT_SDL2
-		SDL_Window* m_windowContext = nullptr;
-	#endif
 		uint64_t m_performanceCounter = 0;
 
 	#ifdef WV_SUPPORT_OPENGL 

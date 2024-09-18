@@ -151,6 +151,7 @@ bool wv::GLFWDeviceContext::initialize( ContextDesc* _desc )
 		return false;
 	}
 
+	m_hasOpenGLContext = false;
 	switch ( _desc->graphicsApi )
 	{
 
@@ -163,13 +164,24 @@ bool wv::GLFWDeviceContext::initialize( ContextDesc* _desc )
 			glfwWindowHint( GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE );
 		else
 			glfwWindowHint( GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE );
+
+		m_hasOpenGLContext = true;
 	} break; // OpenGL 1.0 - 4.6
 
 	case WV_GRAPHICS_API_OPENGL_ES1: case WV_GRAPHICS_API_OPENGL_ES2:
 	{
 		glfwWindowHint( GLFW_CLIENT_API, GLFW_OPENGL_ES_API );
 		glfwWindowHint( GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE );
+		m_hasOpenGLContext = true;
 	} break; // OpenGL ES 1 & 2
+
+#ifdef WV_SUPPORT_D3D11
+	case WV_GRAPHICS_API_D3D11:
+	{
+		glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
+		break;
+	} // D3D11
+#endif
 
 	}
 
@@ -199,7 +211,10 @@ bool wv::GLFWDeviceContext::initialize( ContextDesc* _desc )
 
 	glfwSetWindowFocusCallback( m_windowContext, windowFocusCallback );
 
-	glfwMakeContextCurrent( m_windowContext );
+	if ( m_hasOpenGLContext )
+	{
+		glfwMakeContextCurrent( m_windowContext );
+	}
 
 	glfwGetWindowSize( m_windowContext, &m_width, &m_height );
     return true;
@@ -212,7 +227,10 @@ bool wv::GLFWDeviceContext::initialize( ContextDesc* _desc )
 void wv::GLFWDeviceContext::setSwapInterval( int _interval )
 {
 #ifdef WV_SUPPORT_GLFW
-	glfwSwapInterval( _interval );
+	if ( m_hasOpenGLContext )
+	{
+		glfwSwapInterval( _interval );
+	}
 #endif
 }
 

@@ -50,6 +50,7 @@ namespace wv
 
 	protected:
 		friend class iDeviceContext;
+		bool m_hasOpenGLContext{false};
 		GLFWDeviceContext();
 		
 		bool initialize( ContextDesc* _desc ) override;

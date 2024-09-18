@@ -6,17 +6,27 @@
 #include <wv/Engine/Engine.h>
 #include <wv/Device/GraphicsDevice.h>
 
+#include <iostream>
+
 void wv::cProgramPipeline::load( cFileSystem* _pFileSystem, iGraphicsDevice* _pGraphicsDevice )
 {
-	Debug::Print( Debug::WV_PRINT_DEBUG, "Loading Shader '%s'\n", m_name.c_str() );
+	Debug::Print( Debug::WV_PRINT_DEBUG, "Loading Shader '%s' '%d'\n", m_name.c_str(), _pGraphicsDevice->getGraphicsApi() );
 
 	std::string ext;
 
-#ifdef WV_PLATFORM_WINDOWS
-	ext = ".glsl";
-#elif defined( WV_PLATFORM_PSVITA )
+#ifdef WV_PLATFORM_PSVITA
 	ext = "_cg.gxp";
 	basepath += "psvita/";
+#else
+	switch ( _pGraphicsDevice->getGraphicsApi() )
+	{
+	case WV_GRAPHICS_API_D3D11: ext = ".hlsl"; break;
+
+	default:
+	case WV_GRAPHICS_API_OPENGL:
+	case WV_GRAPHICS_API_OPENGL_ES1:
+	case WV_GRAPHICS_API_OPENGL_ES2: ext = ".glsl"; break;
+	}
 #endif
 
 	std::string vsPath = _pFileSystem->getFullPath( m_name + "_vs" + ext );
@@ -26,6 +36,7 @@ void wv::cProgramPipeline::load( cFileSystem* _pFileSystem, iGraphicsDevice* _pG
 	m_fsSource.data = _pFileSystem->loadMemory( fsPath );
 
 
+	std::cout << basepath + m_name + "_fs" + ext << std::endl;
 
 	sShaderProgramDesc vsDesc;
 	vsDesc.source = m_vsSource;

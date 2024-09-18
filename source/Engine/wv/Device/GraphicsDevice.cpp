@@ -12,11 +12,18 @@
 #include <wv/Engine/Engine.h>
 #include <wv/Resource/ResourceRegistry.h>
 
-#if defined( WV_SUPPORT_OPENGL )
-#include <wv/Device/GraphicsDevice/OpenGLGraphicsDevice.h>
-#elif defined( WV_PLATFORM_PSVITA )
+#ifdef WV_SUPPORT_OPENGL
+#include <wv/Device/GraphicsDevice/OpenGL/OpenGLGraphicsDevice.h>
+#endif
+
+#ifdef WV_SUPPORT_D3D11
+#include <wv/Device/GraphicsDevice/DirectX11/DirectX11GraphicsDevice.h>
+#endif
+
+#ifdef WV_PLATFORM_PSVITA
 #include <wv/Device/GraphicsDevice/PSVitaGraphicsDevice.h>
 #endif
+
 
 #include <exception>
 
@@ -24,16 +31,25 @@
 
 wv::iGraphicsDevice* wv::iGraphicsDevice::createGraphicsDevice( GraphicsDeviceDesc* _desc )
 {
-
 	wv::Debug::Print( Debug::WV_PRINT_DEBUG, "Creating Graphics Device\n" );
 
 	iGraphicsDevice* device = nullptr;
+
 #ifdef WV_PLATFORM_PSVITA
 	device = new cPSVitaGraphicsDevice();
 #else
-#ifdef WV_SUPPORT_OPENGL
-	device = new cOpenGLGraphicsDevice();
+	switch ( _desc->pContext->getGraphicsAPI() )
+	{
+#ifdef WV_SUPPORT_D3D11
+	case WV_GRAPHICS_API_D3D11: device = new cDirectX11GraphicsDevice(); break;
 #endif
+#ifdef WV_SUPPORT_OPENGL
+	case WV_GRAPHICS_API_OPENGL:
+	case WV_GRAPHICS_API_OPENGL_ES1:
+	case WV_GRAPHICS_API_OPENGL_ES2:
+		device = new cOpenGLGraphicsDevice(); break;
+#endif
+	}
 #endif
 
 	if( !device )

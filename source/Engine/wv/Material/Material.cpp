@@ -11,6 +11,8 @@
 #include <wv/Auxiliary/json/json11.hpp>
 #include <wv/Memory/FileSystem.h>
 
+#include <wv/Misc/Time.h>
+
 ///////////////////////////////////////////////////////////////////////////////////////
 
 void wv::cMaterial::load( cFileSystem* _pFileSystem, iGraphicsDevice* _pGraphicsDevice )
@@ -32,8 +34,8 @@ void wv::cMaterial::load( cFileSystem* _pFileSystem, iGraphicsDevice* _pGraphics
 	{
 		/// TEMPORARY FIX
 		/// TODO: NOT THIS
-	#ifdef WV_PLATFORM_WINDOWS 
-		Sleep( 1 );
+		wv::time::sleepForSeconds( 1 );
+	#ifdef WV_PLATFORM_WINDOWS
 		//_pGraphicsDevice->endRender();
 	#endif
 	}
