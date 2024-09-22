@@ -36,7 +36,7 @@ void wv::cProgramPipeline::load( cFileSystem* _pFileSystem, iGraphicsDevice* _pG
 	m_fsSource.data = _pFileSystem->loadMemory( fsPath );
 
 
-	std::cout << basepath + m_name + "_fs" + ext << std::endl;
+	wv::Debug::Print( "%s_fs%s\n", m_name.c_str(), ext.c_str() );
 
 	sShaderProgramDesc vsDesc;
 	vsDesc.source = m_vsSource;

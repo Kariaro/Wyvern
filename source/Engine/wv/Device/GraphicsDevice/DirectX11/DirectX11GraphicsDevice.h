@@ -19,17 +19,22 @@
 namespace wv
 {
 
+#ifdef WV_SUPPORT_D3D11
 	struct sD3D11AdapterData
 	{
-#ifdef WV_SUPPORT_D3D11
 		IDXGIAdapter* pAdapter = nullptr;
 		DXGI_ADAPTER_DESC description;
-#endif
 	};
+
+	struct sD3D11UniformBufferData
+	{
+		wv::Handle bindingIndex = 0;
+	};
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-	class cDirectX11GraphicsDevice : public iGraphicsDevice
+	class cDirectX11GraphicsDevice final : public iGraphicsDevice
 	{
 	public:
 		cDirectX11GraphicsDevice();
@@ -59,42 +64,108 @@ namespace wv
 		virtual void        bufferData      ( cGPUBuffer* _buffer ) override;
 		virtual void        destroyGPUBuffer( cGPUBuffer* _buffer ) override;
 		
-		virtual cMesh* createMesh ( sMeshDesc* _desc )      override;
-		virtual void       destroyMesh( cMesh* _pMesh ) override;
+		virtual sMesh* createMesh ( sMeshDesc* _desc )      override;
+		virtual void       destroyMesh( sMesh* _pMesh ) override;
 
 		virtual void createTexture( Texture* _pTexture, TextureDesc* _desc ) override;
 		virtual void destroyTexture( Texture** _texture ) override;
 
 		virtual void bindTextureToSlot( Texture* _texture, unsigned int _slot ) override;
+		virtual void bindVertexBuffer( cGPUBuffer* _pVertexBuffer ) override {};
+
+		virtual void setFillMode( eFillMode _mode ) override {};
+
+		virtual void draw( sMesh* _pMesh ) override;
+		virtual void drawIndices( uint32_t _numIndices ) override {};
 
 		virtual void swapBuffers() override;
-		virtual void draw( cMesh* _pMesh ) override;
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
 	protected:
+#ifdef WV_SUPPORT_D3D11
 		std::vector<sD3D11AdapterData> m_d3d11adapters;
 
-#ifdef WV_SUPPORT_D3D11
 		ID3D11Device* m_device;
 		IDXGISwapChain* m_swapChain;
 		ID3D11DeviceContext* m_deviceContext;
 		ID3D11Texture2D* m_backBuffer;
 		ID3D11RenderTargetView* m_renderTargetView;
 
+		ID3D11RasterizerState* m_rasterizerState;
+
 		FLOAT m_clearBackgroundColor[ 4 ] = { 0.1f, 0.2f, 0.6f, 1.0f };
 
-		uint32_t m_vertexShaders = 0;
-		std::unordered_map<wv::Handle, ID3D11VertexShader*> m_vertexShaderMap;
-		std::unordered_map<wv::Handle, ID3DBlob*> m_vertexShaderBlobMap;
-		uint32_t m_pixelShaders = 0;
-		std::unordered_map<wv::Handle, ID3D11PixelShader*> m_pixelShaderMap;
-		uint32_t m_inputLayouts = 0;
-		std::unordered_map<wv::Handle, ID3D11InputLayout*> m_inputLayoutMap;
-		uint32_t m_dataBuffers = 0;
-		std::unordered_map<wv::Handle, ID3D11Buffer*> m_dataBufferMap;
+		template <typename _Type>
+		struct ResourceMap
+		{
+			using _MapType = std::unordered_map<wv::Handle, _Type*>;
+			using _MapIter = typename _MapType::local_iterator;
+
+			uint32_t count{ 0 };
+			std::unordered_map<wv::Handle, _Type*> map;
+
+			uint32_t add( _Type* _value )
+			{
+				map[ ++count ] = _value;
+				return count;
+			}
+
+			uint32_t set( uint32_t _index, _Type* _value )
+			{
+				remove( _index );
+				map[ _index ] = _value;
+				return count;
+			}
+
+			_Type* get( wv::Handle _handle )
+			{
+				_MapIter iter = map.find( _handle );
+				if ( iter != map.end() )
+				{
+					return iter->second;
+				}
+				return nullptr;
+			}
+
+			void remove( wv::Handle _handle )
+			{
+				_MapIter iter = map.find( _handle );
+				if ( iter != map.end() )
+				{
+					iter->second->Release();
+					map.erase( iter );
+				}
+			}
+		};
+
+		ResourceMap<ID3D11VertexShader> m_vertexShaderMap;
+		ResourceMap<ID3DBlob> m_vertexShaderBlobMap;
+		ResourceMap<ID3D11PixelShader> m_pixelShaderMap;
+		ResourceMap<ID3D11InputLayout> m_inputLayoutMap;
+		ResourceMap<ID3D11Buffer> m_dataBufferMap;
+
 		
+		struct MeshData
+		{
+			DXGI_FORMAT index_format;
+
+			void Release()
+			{
+				// using A = std::unordered_map<wv::Handle, std::string>;
+				// A test;
+				// A::local_iterator a = test.find( 0 );
+				
+				delete this;
+			}
+		};
+
+		ResourceMap<MeshData> m_meshData;
+
 		
+		ID3D11InfoQueue* m_infoQueue;
+
+		void reflectShader( wv::sShaderProgram* _program, ID3DBlob* _shader );
 #endif
 
 		virtual bool initialize( GraphicsDeviceDesc* _desc ) override;
@@ -102,6 +173,8 @@ namespace wv
 		template<typename... Args>
 		bool assertGLError( const std::string _msg, Args..._args );
 		bool getError( std::string* _out );
+
+		std::string getAllErrors();
 
 		/// TODO: remove?
 		sPipeline* m_activePipeline = nullptr;

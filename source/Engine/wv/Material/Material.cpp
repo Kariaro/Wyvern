@@ -143,7 +143,25 @@ void wv::cMaterial::setDefaultMeshUniforms( sMesh* _mesh )
 	wv::cGPUBuffer* instanceBlock = m_pPipeline->getShaderBuffer( "UbInstanceData" );
 	if ( instanceBlock == nullptr )
 	{
-		Debug::Print( Debug::WV_PRINT_ERROR, "UbInstanceData does not exist as a shader buffer\n" );
+		if ( m_pPipeline->m_pPipeline->pVertexProgram )
+		{
+			Debug::Print( "vs: %d\n", m_pPipeline->m_pPipeline->pVertexProgram->shaderBuffers.size() );
+			for ( auto& buf : m_pPipeline->m_pPipeline->pVertexProgram->shaderBuffers )
+			{
+				Debug::Print( "vs: %s\n", buf->name.c_str() );
+			}
+		}
+
+		if ( m_pPipeline->m_pPipeline->pFragmentProgram )
+		{
+			Debug::Print( "fs: %d\n", m_pPipeline->m_pPipeline->pVertexProgram->shaderBuffers.size() );
+			for ( auto& buf : m_pPipeline->m_pPipeline->pFragmentProgram->shaderBuffers )
+			{
+				Debug::Print( "fs: %s\n", buf->name.c_str() );
+			}
+		}
+
+		Debug::Print( Debug::WV_PRINT_ERROR, "UbInstanceData does not exist as a shader buffer in pipeline '%s'\n", m_pPipeline->getName().c_str() );
 	}
 	else
 	{

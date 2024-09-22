@@ -1,9 +1,8 @@
 rm *.hlsl
-rm default/*.hlsl
 
-path_glslcc=../../../../glsl_to_hlsl/glslcc.exe
+path_glslcc=../../../../../glsl_to_hlsl/glslcc.exe
 
-declare -a types=('basic' 'debug' 'deferred' 'sky' 'sprite' 'unlit' 'default/empty')
+declare -a types=('basic' 'debug' 'deferred' 'sky' 'unlit' 'empty')
 
 profile=420
 for i in "${types[@]}"; do
@@ -18,3 +17,5 @@ for i in "${types[@]}"; do
 	rm "${i}_vs.glsl_tmp"
 	rm "${i}_fs.glsl_tmp"
 done
+
+read -p "Press any key to continue... " -n1 -s

@@ -583,8 +583,8 @@ wv::sMesh* wv::cOpenGLGraphicsDevice::createMesh( sMeshDesc* _desc )
 	WV_TRACE();
 
 #ifdef WV_SUPPORT_OPENGL
-	cMesh* pMesh = new cMesh();
-	cMesh& mesh = *pMesh;
+	sMesh* pMesh = new sMesh();
+	sMesh& mesh = *pMesh;
 	glGenVertexArrays( 1, &mesh.handle );
 	glBindVertexArray( mesh.handle );
 
