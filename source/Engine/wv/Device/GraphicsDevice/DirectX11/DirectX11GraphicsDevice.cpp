@@ -468,7 +468,14 @@ void wv::cDirectX11GraphicsDevice::reflectShader( wv::sShaderProgram* _program, 
 			return;
 		}
 
-		
+		D3D11_SHADER_INPUT_BIND_DESC shaderInputDesc;
+		hr = pReflector->GetResourceBindingDesc( index, &shaderInputDesc );
+		if ( FAILED( hr ) )
+		{
+			wv::Debug::Print( wv::Debug::WV_PRINT_ERROR, "Failed to reflect shader input resource desc index=%d. (%d) %s\n", index, hr, getAllErrors().c_str() );
+			return;
+		}
+
 		sGPUBufferDesc ubDesc;
 		ubDesc.name = std::string( bufferDesc.Name );
 		ubDesc.size = bufferDesc.Size;
@@ -478,7 +485,7 @@ void wv::cDirectX11GraphicsDevice::reflectShader( wv::sShaderProgram* _program, 
 		cGPUBuffer* gpuBuffer = createGPUBuffer( &ubDesc );
 		sD3D11UniformBufferData* pUBData = new sD3D11UniformBufferData();
 		gpuBuffer->pPlatformData = pUBData;
-		pUBData->bindingIndex = index;
+		pUBData->bindingIndex = shaderInputDesc.BindPoint;
 
 		Debug::Print( "- Creating %s\n", bufferDesc.Name );
 
@@ -718,6 +725,23 @@ void wv::cDirectX11GraphicsDevice::bindPipeline( sPipeline* _pPipeline )
 	m_deviceContext->IASetInputLayout( inputLayout );
 	m_deviceContext->VSSetShader( vertexShader, nullptr, 0 );
 	m_deviceContext->PSSetShader( pixelShader, nullptr, 0 );
+
+	// Constant buffers
+	if ( _pPipeline->pVertexProgram )
+	{
+		for ( auto& buf : _pPipeline->pVertexProgram->shaderBuffers )
+		{
+			if ( buf->pPlatformData != nullptr )
+			{
+				auto* platformData = (sD3D11UniformBufferData*)buf->pPlatformData;
+				auto* buffer = m_dataBufferMap.get( buf->handle );
+
+				m_deviceContext->VSSetConstantBuffers( platformData->bindingIndex, 1, &buffer );
+			}
+		}
+	}
+
+	m_activePipeline = _pPipeline;
 #endif
 }
 
@@ -1195,15 +1219,21 @@ void wv::cDirectX11GraphicsDevice::draw( sMesh* _pMesh )
 	WV_TRACE();
 
 #ifdef WV_SUPPORT_D3D11
+	for ( auto& buf : m_activePipeline->pVertexProgram->shaderBuffers )
+		bufferData( buf );
+
+	auto* vertexBuffer = m_dataBufferMap.get( _pMesh->pVertexBuffer->handle );
 	auto* indexBuffer = m_dataBufferMap.get( _pMesh->pIndexBuffer->handle );
 	auto* meshData = m_meshData.get( _pMesh->handle );
 
 	m_deviceContext->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST ); // TODO
 	m_deviceContext->IASetIndexBuffer( indexBuffer, meshData->index_format, 0 );
-	// TODO: Constant buffer
+	UINT stride = sizeof( struct wv::Vertex );
+	UINT offset = 0;
+	m_deviceContext->IASetVertexBuffers( 0, 1, &vertexBuffer, &stride, &offset );
+	
 
-	std::cout << "Vertices " << _pMesh->vertices.size() << std::endl;
-	m_deviceContext->Draw( _pMesh->vertices.size(), 0 );
+	m_deviceContext->Draw( _pMesh->pVertexBuffer->count, 0 );
 #endif
 }
 
