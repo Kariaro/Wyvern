@@ -24,7 +24,7 @@ void wv::Texture::load( cFileSystem* _pFileSystem, iGraphicsDevice* _pGraphicsDe
 		m_path = _pFileSystem->getFullPath( m_name );
 
 	stbi_set_flip_vertically_on_load( 0 );
-	m_pData = reinterpret_cast<uint8_t*>( stbi_load( m_path.c_str(), &m_width, &m_height, &m_numChannels, 0 ) );
+	m_pData = reinterpret_cast<uint8_t*>( stbi_load( m_path.c_str(), &m_width, &m_height, &m_numChannels, 4 ) );
 
 	if ( !m_pData )
 	{
@@ -33,6 +33,8 @@ void wv::Texture::load( cFileSystem* _pFileSystem, iGraphicsDevice* _pGraphicsDe
 
 		return;
 	}
+
+	m_numChannels = 4;
 
 	m_dataSize = m_height * m_numChannels * m_width * m_numChannels;
 	

@@ -45,24 +45,8 @@
 #include <vector>
 
 
-#define WV_HARD_ASSERT 0
-
-#ifdef WV_DEBUG
-	#define WV_VALIDATE_GL( _func ) if( _func == nullptr ) { Debug::Print( Debug::WV_PRINT_FATAL, "Missing function '%s'\n", #_func ); }
-
-	#if WV_HARD_ASSERT
-		#define WV_ASSERT_ERR( _msg ) if( !assertGLError( _msg ) ) throw std::runtime_error( _msg )
-	#else
-		#define WV_ASSERT_ERR( _msg ) assertGLError( _msg ) 
-	#endif
-#else
-	#define WV_VALIDATE_GL( _func )
-	#define WV_ASSERT_ERR( _msg ) 
-#endif
-
-
 #ifdef WV_SUPPORT_D3D11
-std::string getErrorMessage( HRESULT _hr )
+std::string getErrorMessage_DO_NOT_USE( HRESULT _hr )
 {
 	LPTSTR error_text = NULL;
 	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM |
@@ -77,12 +61,10 @@ std::string getErrorMessage( HRESULT _hr )
 
 	return std::string(error_text);
 }
-#endif
 
 std::string wv::cDirectX11GraphicsDevice::getAllErrors()
 {
 	std::string result;
-#ifdef WV_SUPPORT_D3D11
 	uint64_t message_count = m_infoQueue->GetNumStoredMessages();
 
 	for ( uint64_t i = 0; i < message_count; i++ )
@@ -100,9 +82,9 @@ std::string wv::cDirectX11GraphicsDevice::getAllErrors()
 	}
 
 	m_infoQueue->ClearStoredMessages();
-#endif
 	return result;
 }
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -199,6 +181,9 @@ bool wv::cDirectX11GraphicsDevice::initialize( GraphicsDeviceDesc* _desc )
 	int height = _desc->pContext->getHeight();
 	int fps = 60;
 
+	m_viewport.Width = width;
+	m_viewport.Height = height;
+
 	DXGI_SWAP_CHAIN_DESC scd;
 	ZeroMemory( &scd, sizeof( DXGI_SWAP_CHAIN_DESC ) );
 
@@ -260,8 +245,7 @@ bool wv::cDirectX11GraphicsDevice::initialize( GraphicsDeviceDesc* _desc )
 		return false;
 	}
 
-	m_deviceContext->OMSetRenderTargets( 1, &m_renderTargetView, NULL );
-
+	// Create rasterizer
 	D3D11_RASTERIZER_DESC rasterDesc =
 	{
 		.FillMode = D3D11_FILL_SOLID,
@@ -270,6 +254,27 @@ bool wv::cDirectX11GraphicsDevice::initialize( GraphicsDeviceDesc* _desc )
 	};
 	m_device->CreateRasterizerState( &rasterDesc, &m_rasterizerState );
 
+	// Create depth buffer
+	D3D11_TEXTURE2D_DESC depthbufferdesc;
+	m_backBuffer->GetDesc( &depthbufferdesc );
+	depthbufferdesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	depthbufferdesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+	hr = m_device->CreateTexture2D( &depthbufferdesc, nullptr, &m_depthBuffer );
+	if ( FAILED( hr ) ) //If error occurred
+	{
+		Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create depth buffer texture. [%s]\n", getAllErrors().c_str() );
+		return false;
+	}
+
+	hr = m_device->CreateDepthStencilView( m_depthBuffer, nullptr, &m_depthBufferStencil );
+	if ( FAILED( hr ) ) //If error occurred
+	{
+		Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create depth buffer stencil view. [%s]\n", getAllErrors().c_str() );
+		return false;
+	}
+
+	m_deviceContext->OMSetRenderTargets( 1, &m_renderTargetView, m_depthBufferStencil );
 	
 	ID3D11Debug* d3dDebug = nullptr;
 	m_device->QueryInterface( __uuidof( ID3D11Debug ), (void**)&d3dDebug );
@@ -303,6 +308,17 @@ void wv::cDirectX11GraphicsDevice::terminate()
 void wv::cDirectX11GraphicsDevice::onResize( int _width, int _height )
 {
 	WV_TRACE();
+
+#ifdef WV_SUPPORT_D3D11
+	m_viewport = {
+		0.0f,
+		0.0f,
+		(float)_width,
+		(float)_height,
+		0.0f,
+		1.0f };
+	m_deviceContext->RSSetViewports( 1, &m_viewport );
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -312,14 +328,14 @@ void wv::cDirectX11GraphicsDevice::setViewport( int _width, int _height )
 	WV_TRACE();
 
 #ifdef WV_SUPPORT_D3D11
-	D3D11_VIEWPORT viewport = {
+	m_viewport = {
 		0.0f,
 		0.0f,
-		_width,
-		_height,
+		(float) _width,
+		(float)_height,
 		0.0f,
 		1.0f };
-	m_deviceContext->RSSetViewports( 1, &viewport );
+	m_deviceContext->RSSetViewports( 1, &m_viewport );
 #endif
 }
 
@@ -333,42 +349,38 @@ wv::RenderTarget* wv::cDirectX11GraphicsDevice::createRenderTarget( RenderTarget
 	RenderTargetDesc& desc = *_desc;
 	RenderTarget* target = new RenderTarget();
 	
-	/*
-	glGenFramebuffers( 1, &target->fbHandle );
-	glBindFramebuffer( GL_FRAMEBUFFER, target->fbHandle );
-	
-	target->numTextures = desc.numTextures;
-	GLenum* drawBuffers = new GLenum[ desc.numTextures ];
-	target->textures = new Texture * [ desc.numTextures ];
+	target->textures = new Texture*[ desc.numTextures ];
+
+	sD3D11RenderTargetData* data = new sD3D11RenderTargetData();
+	target->fbHandle = m_renderTargetData.add ( data );
+
+	data->renderTargets.resize( desc.numTextures );
+
+	HRESULT hr;
 	for ( int i = 0; i < desc.numTextures; i++ )
 	{
 		desc.pTextureDescs[ i ].width = desc.width;
 		desc.pTextureDescs[ i ].height = desc.height;
+		desc.pTextureDescs[ i ].channels = wv::WV_TEXTURE_CHANNELS_RGBA; // TODO ?
 
 		std::string texname = "buffer_tex" + std::to_string( i );
 
 		target->textures[ i ] = new Texture( texname );
-		createTexture( target->textures[i], &desc.pTextureDescs[i] );
+		internal_createTexture( target->textures[ i ], &desc.pTextureDescs[ i ], true );
 
-		glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, target->textures[ i ]->getHandle(), 0);
-
-		drawBuffers[ i ] = GL_COLOR_ATTACHMENT0 + i;
+		ID3D11Texture2D* renderTexture = m_texture2dMap.get( target->textures[ i ]->getHandle() );
+		ID3D11RenderTargetView* renderView;
+		hr = m_device->CreateRenderTargetView( renderTexture, NULL, &renderView );
+		if ( FAILED( hr ) )
+		{
+			Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create render target. [%s]\n", getAllErrors().c_str() );
+			continue;
+		}
+		data->renderTargets[ i ] = renderView;
 	}
 
-	glGenRenderbuffers( 1, &target->rbHandle );
-	glBindRenderbuffer( GL_RENDERBUFFER, target->rbHandle );
-	glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, desc.width, desc.height );
-	glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, target->rbHandle );
-	
-	glDrawBuffers( desc.numTextures, drawBuffers );
-	delete[] drawBuffers;
-	*/
 	target->width  = desc.width;
 	target->height = desc.height;
-
-	// glBindRenderbuffer( GL_RENDERBUFFER, 0 );
-	// glBindTexture( GL_TEXTURE_2D, 0 );
-	// glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
 	return target;
 #else
@@ -401,19 +413,26 @@ void wv::cDirectX11GraphicsDevice::setRenderTarget( RenderTarget* _target )
 {
 	WV_TRACE();
 
-#ifdef WV_SUPPORT_OPENGL_TEMP
+#ifdef WV_SUPPORT_D3D11
 	if ( m_activeRenderTarget == _target )
 		return;
 
 	unsigned int handle = _target ? _target->fbHandle : 0;
-	
-	glBindFramebuffer( GL_FRAMEBUFFER, handle );
+
+	std::cout << "UPDATE RENDER TARGET " << handle << std::endl;
 	if ( _target )
 	{
-		glViewport( 0, 0, _target->width, _target->height );
+		setViewport( _target->width, _target->height );
+		
+		auto* data = m_renderTargetData.get( handle );
+		if ( data != nullptr )
+		{
+			m_deviceContext->OMGetRenderTargets( _target->numTextures, data->renderTargets.data(), &m_depthBufferStencil );
+		}
 	}
 	
 	m_activeRenderTarget = _target;
+
 #endif
 }
 
@@ -680,7 +699,7 @@ wv::sPipeline* wv::cDirectX11GraphicsDevice::createPipeline( sPipelineDesc* _des
 		&inputLayout );
 	if ( FAILED( hr ) )
 	{
-		Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create input layout. (%d) %s\n", hr, getErrorMessage( hr ).c_str() );
+		Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create input layout. [%s]\n", getAllErrors().c_str() );
 		return nullptr;
 	}
 
@@ -790,8 +809,7 @@ wv::cGPUBuffer* wv::cDirectX11GraphicsDevice::createGPUBuffer( sGPUBufferDesc* _
 		&gpuBuffer);
 	if ( FAILED( hr ) )
 	{
-		Debug::Print( Debug::WV_PRINT_ERROR, "Failed to create gpu buffer. (%d) %s %s\n",
-			hr, getErrorMessage( hr ).c_str(), getAllErrors().c_str() );
+		Debug::Print( Debug::WV_PRINT_ERROR, "Failed to create gpu buffer. [%s]\n", getAllErrors().c_str() );
 		return nullptr;
 	}
 
@@ -824,7 +842,6 @@ void wv::cDirectX11GraphicsDevice::bufferData( cGPUBuffer* _buffer )
 	{
 		return; // todo
 	}
-
 
 	cGPUBuffer& buffer = *_buffer;
 	if ( buffer.pData == nullptr || buffer.size == 0 )
@@ -919,7 +936,7 @@ wv::sMesh* wv::cDirectX11GraphicsDevice::createMesh( sMeshDesc* _desc )
 	uint32_t count = _desc->sizeVertices / sizeof( Vertex );
 	mesh.pVertexBuffer->count = count;
 
-	MeshData* pMeshDataTest = new MeshData{};
+	sMeshData* pMeshDataTest = new sMeshData{};
 	mesh.handle = m_meshData.add( pMeshDataTest );
 	
 	/*
@@ -955,8 +972,7 @@ wv::sMesh* wv::cDirectX11GraphicsDevice::createMesh( sMeshDesc* _desc )
 		mesh.pIndexBuffer->count = _desc->numIndices;
 		
 		// glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, mesh.pIndexBuffer->handle );
-		
-		WV_ASSERT_ERR( "ERROR\n" );
+		// WV_ASSERT_ERR( "ERROR\n" );
 
 		if ( _desc->pIndices16 )
 		{
@@ -1045,8 +1061,6 @@ void wv::cDirectX11GraphicsDevice::destroyMesh( sMesh* _pMesh )
 	// Delete mesh specific data
 	m_meshData.remove( _pMesh->handle );
 
-	// glDeleteVertexArrays( 1, &pr.handle );
-	// WV_ASSERT_ERR( "ERROR\n" );
 	delete _pMesh;
 #endif
 }
@@ -1055,12 +1069,16 @@ void wv::cDirectX11GraphicsDevice::destroyMesh( sMesh* _pMesh )
 
 void wv::cDirectX11GraphicsDevice::createTexture( Texture* _pTexture, TextureDesc* _desc )
 {
+#ifdef WV_SUPPORT_D3D11
+	internal_createTexture( _pTexture, _desc, false );
+#endif
+}
+
+void wv::cDirectX11GraphicsDevice::internal_createTexture( Texture* _pTexture, TextureDesc* _desc, bool _renderTarget )
+{
 	WV_TRACE();
 
-#ifdef WV_SUPPORT_OPENGL_TEMP
-	GLenum internalFormat = GL_R8;
-	GLenum format = GL_RED;
-
+#ifdef WV_SUPPORT_D3D11
 	unsigned char* data = nullptr;
 	if ( _pTexture->getData() )
 	{
@@ -1069,92 +1087,146 @@ void wv::cDirectX11GraphicsDevice::createTexture( Texture* _pTexture, TextureDes
 		_desc->height = _pTexture->getHeight();
 		_desc->channels = static_cast<wv::TextureChannels>( _pTexture->getNumChannels() );
 	}
-	
+
+	DXGI_FORMAT internalFormat;
+
+	int size = 1;
+
 	switch ( _desc->channels )
 	{
 	case wv::WV_TEXTURE_CHANNELS_R:
-		format = GL_RED;
+		size = 1;
 		switch ( _desc->format )
 		{
-		case wv::WV_TEXTURE_FORMAT_BYTE:  internalFormat = GL_R8;  break;
-		case wv::WV_TEXTURE_FORMAT_FLOAT: internalFormat = GL_R32F; break;
-		case wv::WV_TEXTURE_FORMAT_INT:   internalFormat = GL_R32I; format = GL_RED_INTEGER; break;
+		case wv::WV_TEXTURE_FORMAT_BYTE:
+			internalFormat = DXGI_FORMAT_R8_UINT;
+			size = 1;
+			break;
+		case wv::WV_TEXTURE_FORMAT_FLOAT:
+			internalFormat = DXGI_FORMAT_R32_FLOAT;
+			size = 4 * 1;
+			break;
+		case wv::WV_TEXTURE_FORMAT_INT:
+			internalFormat = DXGI_FORMAT_R32_SINT;
+			size = 4 * 1;
+			break;
 		}
 		break;
 	case wv::WV_TEXTURE_CHANNELS_RG:
-		format = GL_RG;
+		size = 2;
 		switch ( _desc->format )
 		{
-		case wv::WV_TEXTURE_FORMAT_BYTE:  internalFormat = GL_RG8;    break;
-		case wv::WV_TEXTURE_FORMAT_FLOAT: internalFormat = GL_RG32F; break;
-		case wv::WV_TEXTURE_FORMAT_INT:   internalFormat = GL_RG32I; format = GL_RG_INTEGER; break;
+		case wv::WV_TEXTURE_FORMAT_BYTE:
+			internalFormat = DXGI_FORMAT_R8G8_UINT;
+			size = 2;
+			break;
+		case wv::WV_TEXTURE_FORMAT_FLOAT:
+			internalFormat = DXGI_FORMAT_R32G32_FLOAT;
+			size = 4 * 2;
+			break;
+		case wv::WV_TEXTURE_FORMAT_INT:
+			internalFormat = DXGI_FORMAT_R32G32_SINT;
+			size = 4 * 2;
+			break;
 		}
 		break;
 	case wv::WV_TEXTURE_CHANNELS_RGB:
-		format = GL_RGB;
-		glPixelStorei( GL_UNPACK_ALIGNMENT, 1 ); // 3 (channels) is not divisible by 4. Set pixel alignment to 1
-		switch ( _desc->format )
-		{
-		case wv::WV_TEXTURE_FORMAT_BYTE:  internalFormat = GL_RGB8;   break;
-		case wv::WV_TEXTURE_FORMAT_FLOAT: internalFormat = GL_RGB32F; break;
-		case wv::WV_TEXTURE_FORMAT_INT:   internalFormat = GL_RGB32I; format = GL_RGB_INTEGER; break;
-		}
-		break;
+		Debug::Print( Debug::WV_PRINT_FATAL, "RGB not supported use RGBA\n" );
+		return;
 	case wv::WV_TEXTURE_CHANNELS_RGBA:
-		format = GL_RGBA;
 		switch ( _desc->format )
 		{
-		case wv::WV_TEXTURE_FORMAT_BYTE:  internalFormat = GL_RGBA8;   break;
-		case wv::WV_TEXTURE_FORMAT_FLOAT: internalFormat = GL_RGBA32F; break;
-		case wv::WV_TEXTURE_FORMAT_INT:   internalFormat = GL_RGBA32I; format = GL_RGBA_INTEGER; break;
+		case wv::WV_TEXTURE_FORMAT_BYTE:
+			internalFormat = DXGI_FORMAT_R8G8B8A8_UINT;
+			size = 4;
+			break;
+		case wv::WV_TEXTURE_FORMAT_FLOAT:
+			internalFormat = DXGI_FORMAT_R32G32B32A32_FLOAT;
+			size = 4 * 4;
+			break;
+		case wv::WV_TEXTURE_FORMAT_INT:
+			internalFormat = DXGI_FORMAT_R32G32B32A32_SINT;
+			size = 4 * 4;
+			break;
+		break;
 		}
 		break;
 	}
 
-	GLuint handle;
-	glGenTextures( 1, &handle );
-	WV_ASSERT_ERR( "Failed to gen texture\n" );
+	// internalFormat = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	// size = 4 * 4;
+
+	
+	D3D11_TEXTURE2D_DESC texturedesc = {};
+	texturedesc.Width = _desc->width;
+	texturedesc.Height = _desc->height;
+	texturedesc.MipLevels = _desc->generateMipMaps ? 4 : 1;
+	texturedesc.Format = internalFormat;
+	texturedesc.ArraySize = 1;
+	texturedesc.CPUAccessFlags = _renderTarget ? 0 : D3D11_CPU_ACCESS_WRITE;
+	texturedesc.SampleDesc.Count = 1;
+	texturedesc.Usage = _renderTarget ? D3D11_USAGE_DEFAULT : D3D11_USAGE_IMMUTABLE;
+	texturedesc.BindFlags = _renderTarget
+		? D3D11_BIND_RENDER_TARGET
+		: D3D11_BIND_SHADER_RESOURCE;
+
+	D3D11_SUBRESOURCE_DATA textureSRD = {};
+	textureSRD.pSysMem = _pTexture->getData();
+	textureSRD.SysMemPitch = _pTexture->getWidth() * size;
+
+	D3D11_SUBRESOURCE_DATA* pTextureSRD = &textureSRD;
+
+	if ( _pTexture->getData() == nullptr )
+	{
+		pTextureSRD = nullptr;
+	}
+
+	HRESULT hr;
+	ID3D11Texture2D* texture2d = nullptr;
+	hr = m_device->CreateTexture2D(
+		&texturedesc,
+		pTextureSRD,
+		&texture2d);
+	if ( FAILED( hr ) )
+	{
+		Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create texture 2d. [%s]\n", getAllErrors().c_str() );
+		return;
+	}
+
+	uint32_t handle = m_texture2dMap.add( texture2d );
+
+	if ( !_renderTarget )
+	{
+		ID3D11ShaderResourceView* textureSRV = nullptr;
+		hr = m_device->CreateShaderResourceView( texture2d, nullptr, &textureSRV );
+		if ( FAILED( hr ) )
+		{
+			Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create texture shader view. [%s]\n", getAllErrors().c_str() );
+			return;
+		}
+
+		m_textureShaderResourceViewMap.set( handle, textureSRV );
+	}
+
+	// TODO: D3D11 Texture Filtering MIN MAG
+	D3D11_SAMPLER_DESC samplerdesc = {};
+	samplerdesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+	samplerdesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerdesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerdesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerdesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+
+	ID3D11SamplerState* textureSampler;
+	hr = m_device->CreateSamplerState( &samplerdesc, &textureSampler );
+	if ( FAILED( hr ) )
+	{
+		Debug::Print( Debug::WV_PRINT_FATAL, "Failed to create texture sampler. [%s]\n", getAllErrors().c_str() );
+		return;
+	}
+	m_textureSamplerResourceMap.set( handle, textureSampler );
 
 	_pTexture->setHandle( handle );
 
-	glBindTexture( GL_TEXTURE_2D, handle );
-
-	WV_ASSERT_ERR( "Failed to bind texture\n" );
-	
-	GLenum filter = GL_NEAREST;
-	switch ( _desc->filtering )
-	{
-	case WV_TEXTURE_FILTER_NEAREST: filter = GL_NEAREST; break;
-	case WV_TEXTURE_FILTER_LINEAR:  filter = GL_LINEAR; break;
-	}
-	
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
-	
-	GLenum type = GL_UNSIGNED_BYTE;
-	switch ( _desc->format )
-	{
-	case wv::WV_TEXTURE_FORMAT_FLOAT: type = GL_FLOAT; break;
-	case wv::WV_TEXTURE_FORMAT_INT:   type = GL_INT; break;
-	}
-
-	glTexImage2D( GL_TEXTURE_2D, 0, internalFormat, _desc->width, _desc->height, 0, format, type, data );
-#ifdef WV_DEBUG
-	assertGLError( "Failed to create Texture\n" );
-#endif
-
-	if ( _desc->generateMipMaps )
-	{
-		glGenerateMipmap( GL_TEXTURE_2D );
-
-		WV_ASSERT_ERR( "ERROR\n" );
-	}
-	_pTexture->setWidth( _desc->width );
-	_pTexture->setHeight( _desc->height );
-
-	// Debug::Print( Debug::WV_PRINT_DEBUG, "Created texture %s\n", _pTexture->getName().c_str() );
 #endif
 }
 
@@ -1164,11 +1236,13 @@ void wv::cDirectX11GraphicsDevice::destroyTexture( Texture** _texture )
 {
 	WV_TRACE();
 
-#ifdef WV_SUPPORT_OPENGL_TEMP
+#ifdef WV_SUPPORT_D3D11
 	// Debug::Print( Debug::WV_PRINT_DEBUG, "Destroyed texture %s\n", (*_texture)->getName().c_str() );
 
 	wv::Handle handle = ( *_texture )->getHandle();
-	glDeleteTextures( 1, &handle );
+	m_texture2dMap.remove( handle );
+	m_textureShaderResourceViewMap.remove( handle );
+	m_textureSamplerResourceMap.remove( handle );
 	delete *_texture;
 	*_texture = nullptr;
 #endif
@@ -1180,21 +1254,13 @@ void wv::cDirectX11GraphicsDevice::bindTextureToSlot( Texture* _texture, unsigne
 {
 	WV_TRACE();
 
-#ifdef WV_SUPPORT_OPENGL_TEMP
-	/// TODO: some cleaner way of checking version/supported features
-	if ( m_graphicsApiVersion.major == 4 && m_graphicsApiVersion.minor >= 5 ) // if OpenGL 4.5 or higher
-	{
-		glBindTextureUnit( _slot, _texture->getHandle() );
+#ifdef WV_SUPPORT_D3D11
+	wv::Handle handle = _texture->getHandle();
+	auto* shaderResource = m_textureShaderResourceViewMap.get( handle );
+	auto* shaderSampler = m_textureSamplerResourceMap.get( handle );
 
-		WV_ASSERT_ERR( "ERROR\n" );
-	}
-	else 
-	{
-		glActiveTexture( GL_TEXTURE0 + _slot );
-		glBindTexture( GL_TEXTURE_2D, _texture->getHandle() );
-
-		WV_ASSERT_ERR( "ERROR\n" );
-	}
+	m_deviceContext->PSSetShaderResources( _slot, 1, &shaderResource );
+	m_deviceContext->PSSetSamplers( _slot, 1, &shaderSampler );
 
 	m_boundTextureSlots[ _slot ] = _texture->getHandle();
 #endif
@@ -1207,8 +1273,27 @@ void wv::cDirectX11GraphicsDevice::swapBuffers()
 	WV_TRACE();
 
 #ifdef WV_SUPPORT_D3D11
-	m_deviceContext->ClearRenderTargetView( m_renderTargetView, m_clearBackgroundColor );
+	m_deviceContext->RSSetViewports( 1, &m_viewport );
+	m_deviceContext->RSSetState( m_rasterizerState );
+
+	// m_deviceContext->OMSetRenderTargets( 1, &m_renderTargetView, m_depthBufferStencil );
+	m_deviceContext->OMSetBlendState( nullptr, nullptr, 0xffffffff );
 	m_swapChain->Present( 1, 0 );
+
+	// Clear for next frame
+	if ( m_activeRenderTarget )
+	{
+		auto* data = m_renderTargetData.get( m_activeRenderTarget->fbHandle );
+		if ( data != nullptr )
+		{
+			for ( auto* item : data->renderTargets )
+			{
+				m_deviceContext->ClearRenderTargetView( item, m_clearBackgroundColor );
+			}
+		}
+	}
+
+	m_deviceContext->ClearDepthStencilView( m_depthBufferStencil, D3D11_CLEAR_DEPTH, 1.0f, 0 );
 #endif
 }
 
@@ -1234,39 +1319,5 @@ void wv::cDirectX11GraphicsDevice::draw( sMesh* _pMesh )
 	
 
 	m_deviceContext->Draw( _pMesh->pVertexBuffer->count, 0 );
-#endif
-}
-
-///////////////////////////////////////////////////////////////////////////////////////
-
-bool wv::cDirectX11GraphicsDevice::getError( std::string* _out )
-{
-	WV_TRACE();
-
-#ifdef WV_SUPPORT_OPENGL_TEMP
-	bool hasError = false;
-
-	GLenum err;
-	while ( ( err = glGetError() ) != GL_NO_ERROR ) // is while needed here?
-	{
-		hasError = true;
-		switch ( err )
-		{
-		case GL_INVALID_ENUM:      *_out = "GL_INVALID_ENUM";      break;
-		case GL_INVALID_VALUE:     *_out = "GL_INVALID_VALUE";     break;
-		case GL_INVALID_OPERATION: *_out = "GL_INVALID_OPERATION"; break;
-		
-		case GL_STACK_OVERFLOW:  *_out = "GL_STACK_OVERFLOW";    break;
-		case GL_STACK_UNDERFLOW: *_out = "GL_STACK_UNDERFLOW";   break;
-		case GL_OUT_OF_MEMORY:   *_out = "GL_OUT_OF_MEMORY";     break;
-		case GL_CONTEXT_LOST:    *_out = "GL_OUT_OF_MEMORY";     break;
-
-		case GL_INVALID_FRAMEBUFFER_OPERATION: *_out = "GL_INVALID_FRAMEBUFFER_OPERATION"; break;
-		}
-	}
-
-	return hasError;
-#else
-	return false;
 #endif
 }

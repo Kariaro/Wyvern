@@ -30,6 +30,67 @@ namespace wv
 	{
 		wv::Handle bindingIndex = 0;
 	};
+
+	struct sD3D11RenderTargetData
+	{
+		std::vector<ID3D11RenderTargetView*> renderTargets;
+		void Release() {
+			for ( auto* item : renderTargets )
+			{
+				item->Release();
+			}
+			delete this;
+		}
+	};
+
+	struct sMeshData
+	{
+		DXGI_FORMAT index_format;
+		void Release() { delete this; }
+	};
+
+	template<typename _Type>
+	struct sD3D11ResourceMap
+	{
+		using _MapType = std::unordered_map<wv::Handle, _Type*>;
+		using _MapIter = typename _MapType::local_iterator;
+
+		uint32_t count { 0 };
+		std::unordered_map<wv::Handle, _Type*> map;
+
+		uint32_t add( _Type* _value )
+		{
+			map[ ++count ] = _value;
+			return count;
+		}
+
+		uint32_t set( uint32_t _index, _Type* _value )
+		{
+			remove( _index );
+			map[ _index ] = _value;
+			return count;
+		}
+
+		_Type* get( wv::Handle _handle )
+		{
+			_MapIter iter = map.find( _handle );
+			if ( iter != map.end() )
+			{
+				return iter->second;
+			}
+			return nullptr;
+		}
+
+		void remove( wv::Handle _handle )
+		{
+			_MapIter iter = map.find( _handle );
+			if ( iter != map.end() )
+			{
+				iter->second->Release();
+				map.erase( iter );
+			}
+		}
+	};
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -84,118 +145,63 @@ namespace wv
 
 	protected:
 #ifdef WV_SUPPORT_D3D11
+		void internal_createTexture( Texture* _pTexture, TextureDesc* _desc, bool _renderTarget );
+
 		std::vector<sD3D11AdapterData> m_d3d11adapters;
 
 		ID3D11Device* m_device;
 		IDXGISwapChain* m_swapChain;
 		ID3D11DeviceContext* m_deviceContext;
+
+		// Remove these two (part of render target)
 		ID3D11Texture2D* m_backBuffer;
 		ID3D11RenderTargetView* m_renderTargetView;
 
+
+		// This could stay
+		ID3D11Texture2D* m_depthBuffer;
+		ID3D11DepthStencilView* m_depthBufferStencil;
+
+		// Rasterizer state
 		ID3D11RasterizerState* m_rasterizerState;
 
-		FLOAT m_clearBackgroundColor[ 4 ] = { 0.1f, 0.2f, 0.6f, 1.0f };
-
-		template <typename _Type>
-		struct ResourceMap
-		{
-			using _MapType = std::unordered_map<wv::Handle, _Type*>;
-			using _MapIter = typename _MapType::local_iterator;
-
-			uint32_t count{ 0 };
-			std::unordered_map<wv::Handle, _Type*> map;
-
-			uint32_t add( _Type* _value )
-			{
-				map[ ++count ] = _value;
-				return count;
-			}
-
-			uint32_t set( uint32_t _index, _Type* _value )
-			{
-				remove( _index );
-				map[ _index ] = _value;
-				return count;
-			}
-
-			_Type* get( wv::Handle _handle )
-			{
-				_MapIter iter = map.find( _handle );
-				if ( iter != map.end() )
-				{
-					return iter->second;
-				}
-				return nullptr;
-			}
-
-			void remove( wv::Handle _handle )
-			{
-				_MapIter iter = map.find( _handle );
-				if ( iter != map.end() )
-				{
-					iter->second->Release();
-					map.erase( iter );
-				}
-			}
-		};
-
-		ResourceMap<ID3D11VertexShader> m_vertexShaderMap;
-		ResourceMap<ID3DBlob> m_vertexShaderBlobMap;
-		ResourceMap<ID3D11PixelShader> m_pixelShaderMap;
-		ResourceMap<ID3D11InputLayout> m_inputLayoutMap;
-		ResourceMap<ID3D11Buffer> m_dataBufferMap;
-
-		
-		struct MeshData
-		{
-			DXGI_FORMAT index_format;
-
-			void Release()
-			{
-				// using A = std::unordered_map<wv::Handle, std::string>;
-				// A test;
-				// A::local_iterator a = test.find( 0 );
-				
-				delete this;
-			}
-		};
-
-		ResourceMap<MeshData> m_meshData;
-
-		
+		// For debug
 		ID3D11InfoQueue* m_infoQueue;
 
+		FLOAT m_clearBackgroundColor[ 4 ] = { 0.1f, 0.2f, 0.6f, 1.0f };
+		D3D11_VIEWPORT m_viewport = {
+			0.0f,
+			0.0f,
+			2.0f, // width
+			2.0f, // height
+			0.0f,
+			1.0f
+		};
+
+
+		sD3D11ResourceMap<ID3D11VertexShader> m_vertexShaderMap;
+		sD3D11ResourceMap<ID3DBlob> m_vertexShaderBlobMap;
+		sD3D11ResourceMap<ID3D11PixelShader> m_pixelShaderMap;
+		sD3D11ResourceMap<ID3D11InputLayout> m_inputLayoutMap;
+		sD3D11ResourceMap<ID3D11Buffer> m_dataBufferMap;
+		sD3D11ResourceMap<ID3D11Texture2D> m_texture2dMap;
+		sD3D11ResourceMap<ID3D11ShaderResourceView> m_textureShaderResourceViewMap;
+		sD3D11ResourceMap<ID3D11SamplerState> m_textureSamplerResourceMap;
+
+		sD3D11ResourceMap<sD3D11RenderTargetData> m_renderTargetData;
+		sD3D11ResourceMap<sMeshData> m_meshData;
+
 		void reflectShader( wv::sShaderProgram* _program, ID3DBlob* _shader );
+		std::string getAllErrors();
 #endif
 
 		virtual bool initialize( GraphicsDeviceDesc* _desc ) override;
 
-		template<typename... Args>
-		bool assertGLError( const std::string _msg, Args..._args );
-		bool getError( std::string* _out );
-
-		std::string getAllErrors();
-
-		/// TODO: remove?
 		sPipeline* m_activePipeline = nullptr;
 		RenderTarget* m_activeRenderTarget = nullptr;
 
 		int m_numTotalUniformBlocks = 0;
 
-		// states
-		std::vector<wv::Handle> m_boundTextureSlots;
+		std::unordered_map<int, wv::Handle> m_boundTextureSlots;
 	};
-
-	template<typename ...Args>
-	inline bool cDirectX11GraphicsDevice::assertGLError( const std::string _msg, Args... _args )
-	{
-		std::string error;
-		if ( !getError( &error ) )
-			return true;
-		
-		Debug::Print( Debug::WV_PRINT_ERROR, _msg.c_str(), _args... );
-		Debug::Print( Debug::WV_PRINT_ERROR, "  %s\n", error.c_str() );
-
-		return false;
-	}
 }

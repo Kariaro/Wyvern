@@ -17,9 +17,9 @@ out gl_PerVertex
     vec4 gl_Position;
 };
 
-layout(location = 1) out vec2 TexCoord;
-layout(location = 2) out vec3 Normal;
-layout(location = 3) out vec3 Pos;
+layout(location = 0) out vec2 TexCoord;
+layout(location = 1) out vec3 Normal;
+layout(location = 2) out vec3 Pos;
 
 void main()
 {
